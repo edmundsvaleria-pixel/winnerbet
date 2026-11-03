@@ -3,25 +3,181 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --wb-bg: #0a0a0a;
+  --wb-surface: #1a1a1a;
+  --wb-sub: #2a2a2a;
+  --wb-border: #333333;
+  --wb-border-strong: #444444;
+  --wb-primary: #00c853;
+  --wb-primary-hover: #00e676;
+  --wb-text: #ffffff;
+  --wb-muted: #a3a3a3;
+  --wb-danger: #ef4444;
+
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--wb-border);
+}
+
+html,
+body {
+  background-color: var(--wb-bg);
+  color: var(--wb-text);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--wb-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--wb-border);
+  border-radius: 9999px;
+  border: 2px solid var(--wb-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--wb-border-strong);
+}
+
+/* Input Autofill Fix */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--wb-sub) inset !important;
+  box-shadow: 0 0 0 1000px var(--wb-sub) inset !important;
+  caret-color: #ffffff;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Number Input Fix */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* 
+  =============================================
+  REACT INTERNATIONAL PHONE - DARK THEME FIX
+  =============================================
+*/
+
+/* 1. Override the library's CSS variables for dark mode */
+:root {
+  --react-international-phone-height: 48px;
+  --react-international-phone-background-color: var(--wb-sub);
+  --react-international-phone-text-color: #ffffff;
+  --react-international-phone-font-size: 14px;
+  --react-international-phone-border-radius: 0.75rem;
+  --react-international-phone-border-color: var(--wb-border-strong);
+}
+
+/* 2. Style the main container */
+.react-international-phone-input-container {
+  width: 100%;
+  display: flex !important; 
+  border: 1px solid var(--wb-border-strong);
+  background-color: var(--wb-sub);
+  border-radius: 0.75rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden; 
+}
+
+.react-international-phone-input-container:focus-within {
+  border-color: var(--wb-primary);
+  box-shadow: 0 0 0 1px var(--wb-primary);
+}
+
+/* 3. Style the country selector button (Force it to stay small) */
+.react-international-phone-country-selector-button {
+  background-color: var(--wb-sub) !important;
+  border: none !important;
+  border-right: 1px solid var(--wb-border-strong) !important;
+  padding: 0 12px !important;
+  height: 100% !important;
+  width: auto !important; /* Prevents stretching */
+  flex-shrink: 0 !important; /* Prevents it from taking over */
+  display: flex;
+  align-items: center;
+}
+
+/* Hide the long country name in the closed button */
+.react-international-phone-country-selector-button__country-name {
+  display: none !important;
+}
+
+/* Add a gap between flag and dial code */
+.react-international-phone-country-selector-button__dial-code {
+  margin-left: 8px;
+}
+
+.react-international-phone-country-selector-button:hover {
+  background-color: var(--wb-border) !important;
+}
+
+/* 4. Style the actual input text area (Force it to stretch) */
+.react-international-phone-input {
+  background-color: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 0 16px !important;
+  height: 100% !important;
+  width: 100% !important;
+  flex: 1 !important; /* Takes all remaining space */
+  font-size: 14px !important;
+  outline: none !important;
+  min-width: 0 !important; /* Crucial for flexbox */
+}
+
+.react-international-phone-input::placeholder {
+  color: var(--wb-muted);
+}
+
+/* 5. Style the dropdown menu */
+.react-international-phone-country-selector-dropdown {
+  background-color: var(--wb-surface) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--wb-border-strong) !important;
+  border-radius: 0.75rem !important;
+  margin-top: 4px !important;
+  z-index: 50;
+}
+
+.react-international-phone-country-selector-dropdown__list-item {
+  background-color: var(--wb-surface) !important;
+  color: #ffffff !important;
+  padding: 10px 16px !important;
+}
+
+.react-international-phone-country-selector-dropdown__list-item:hover,
+.react-international-phone-country-selector-dropdown__list-item--focused {
+  background-color: var(--wb-sub) !important;
+}
+
+.react-international-phone-country-selector-dropdown__list-item-country-name {
+  color: #ffffff !important;
+}
+
+.react-international-phone-country-selector-dropdown__list-item-dial-code {
+  color: var(--wb-muted) !important;
+}
+/* Add this at the very bottom of globals.css */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
 }

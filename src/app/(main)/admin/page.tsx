@@ -1,0 +1,185 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
+import { useUserStore } from "@/store/userStore";
+import { Loader2, PlusCircle, CheckCircle, XCircle, FileText } from "lucide-react";
+
+export default function AdminPage() {
+  const router = useRouter();
+  const symbol = useUserStore((s) => s.symbol);
+  
+  const [activeTab, setActiveTab] = useState<"create" | "manage" | "kyc">("create");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const [league, setLeague] = useState("");
+  const [homeTeam, setHomeTeam] = useState("");
+  const [awayTeam, setAwayTeam] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [homeOdds, setHomeOdds] = useState("2.00");
+  const [drawOdds, setDrawOdds] = useState("3.00");
+  const [awayOdds, setAwayOdds] = useState("3.50");
+
+  const [pendingBets, setPendingBets] = useState<any[]>([]);
+  const [kycList, setKycList] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function checkAdmin() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return router.push("/login");
+      const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      if (data?.role !== "admin") router.push("/sports/football");
+    }
+    checkAdmin();
+  }, [router]);
+
+  const loadPendingBets = async () => {
+    const { data } = await supabase.from("bets").select("*").eq("status", "pending").order("created_at", { ascending: false });
+    if (data) setPendingBets(data);
+  };
+
+  const loadKycRequests = async () => {
+    const { data } = await supabase.from("kyc_submissions").select("*").eq("status", "pending");
+    if (data) setKycList(data);
+  };
+
+  useEffect(() => {
+    if (activeTab === "manage") loadPendingBets();
+    if (activeTab === "kyc") loadKycRequests();
+  }, [activeTab]);
+
+  async function handleCreateMatch(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/create-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ league, homeTeam, awayTeam, startTime, homeOdds: Number(homeOdds), drawOdds: Number(drawOdds), awayOdds: Number(awayOdds) }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: "success", text: "Match created successfully!" });
+        setLeague(""); setHomeTeam(""); setAwayTeam(""); setStartTime("");
+      } else throw new Error(data.error);
+    } catch (err: any) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSettle(betId: number, outcome: "won" | "lost") {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/settle-bet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ betId, outcome }),
+      });
+      if (res.ok) { setMessage({ type: "success", text: `Bet marked as ${outcome}.` }); loadPendingBets(); }
+    } catch (err: any) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleKycAction(userId: string, submissionId: number, action: "approved" | "rejected") {
+    setLoading(true);
+    // 1. Update submission
+    await supabase.from("kyc_submissions").update({ status: action }).eq("id", submissionId);
+    // 2. Update profile
+    await supabase.from("profiles").update({ kyc_status: action }).eq("id", userId);
+    
+    setMessage({ type: "success", text: `KYC ${action}.` });
+    loadKycRequests();
+    setLoading(false);
+  }
+
+  return (
+    <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold text-white mb-6">Admin Dashboard</h1>
+
+      <div className="flex gap-2 mb-6 bg-wb-surface p-1 rounded-xl border border-wb-border overflow-x-auto">
+        {(["create", "manage", "kyc"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition capitalize ${activeTab === tab ? "bg-wb-primary text-black" : "text-wb-muted hover:text-white"}`}>
+            {tab === "kyc" ? "KYC Requests" : tab}
+          </button>
+        ))}
+      </div>
+
+      {message && (
+        <div className={`mb-4 p-3 rounded-lg text-sm font-medium border ${message.type === "success" ? "bg-wb-primary/10 border-wb-primary/30 text-wb-primary" : "bg-wb-danger/10 border-wb-danger/30 text-wb-danger"}`}>
+          {message.text}
+        </div>
+      )}
+
+      {activeTab === "create" && (
+        <form onSubmit={handleCreateMatch} className="space-y-4 rounded-2xl border border-wb-border bg-wb-surface p-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">League</label><input required type="text" value={league} onChange={(e) => setLeague(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Start Time</label><input required type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Home Team</label><input required type="text" value={homeTeam} onChange={(e) => setHomeTeam(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Away Team</label><input required type="text" value={awayTeam} onChange={(e) => setAwayTeam(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Home (1)</label><input required type="number" step="0.01" value={homeOdds} onChange={(e) => setHomeOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Draw (X)</label><input required type="number" step="0.01" value={drawOdds} onChange={(e) => setDrawOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Away (2)</label><input required type="number" step="0.01" value={awayOdds} onChange={(e) => setAwayOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+          </div>
+          <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-wb-primary py-3 text-sm font-bold text-black hover:bg-wb-primary-hover disabled:opacity-40 mt-4">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} Create Match
+          </button>
+        </form>
+      )}
+
+      {activeTab === "manage" && (
+        <div className="space-y-3">
+          {pendingBets.map((bet) => (
+            <div key={bet.id} className="rounded-xl border border-wb-border bg-wb-surface p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold text-wb-primary mb-1">{bet.booking_code}</p>
+                <p className="text-sm text-white font-medium">Stake: {symbol} {Number(bet.stake).toFixed(2)}</p>
+                <p className="text-xs text-wb-muted">Potential Win: {symbol} {Number(bet.potential_win).toFixed(2)}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => handleSettle(bet.id, "won")} disabled={loading} className="flex items-center gap-1 rounded-lg bg-wb-primary/10 px-3 py-2 text-xs font-bold text-wb-primary hover:bg-wb-primary/20"><CheckCircle className="h-4 w-4" /> Won</button>
+                <button onClick={() => handleSettle(bet.id, "lost")} disabled={loading} className="flex items-center gap-1 rounded-lg bg-wb-danger/10 px-3 py-2 text-xs font-bold text-wb-danger hover:bg-wb-danger/20"><XCircle className="h-4 w-4" /> Lost</button>
+              </div>
+            </div>
+          ))}
+          {pendingBets.length === 0 && <p className="text-center py-10 text-wb-muted">No pending bets.</p>}
+        </div>
+      )}
+
+      {activeTab === "kyc" && (
+        <div className="space-y-3">
+          {kycList.map((kyc) => (
+            <div key={kyc.id} className="rounded-xl border border-wb-border bg-wb-surface p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-wb-muted" />
+                  <span className="text-sm text-white font-medium capitalize">{kyc.document_type.replace('_', ' ')}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => handleKycAction(kyc.user_id, kyc.id, "approved")} className="rounded bg-wb-primary/10 px-3 py-1 text-xs font-bold text-wb-primary hover:bg-wb-primary/20">Approve</button>
+                  <button onClick={() => handleKycAction(kyc.user_id, kyc.id, "rejected")} className="rounded bg-wb-danger/10 px-3 py-1 text-xs font-bold text-wb-danger hover:bg-wb-danger/20">Reject</button>
+                </div>
+              </div>
+              <div className="rounded-lg border border-wb-border overflow-hidden">
+                <img src={kyc.document_url} alt="Document" className="w-full h-48 object-cover" />
+              </div>
+            </div>
+          ))}
+          {kycList.length === 0 && <p className="text-center py-10 text-wb-muted">No pending KYC requests.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
