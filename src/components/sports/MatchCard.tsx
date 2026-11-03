@@ -25,7 +25,6 @@ export default function MatchCard({
     });
   };
 
-  // Find the 1X2 market to display on the card
   const oneXTwo = match.markets?.find((m) => m.id === "1x2");
   const homeOdd = oneXTwo?.outcomes.find((o) => o.label === "Home")?.odds || 0;
   const drawOdd = oneXTwo?.outcomes.find((o) => o.label === "Draw")?.odds || 0;
@@ -39,9 +38,9 @@ export default function MatchCard({
       <button
         onClick={(e) => { e.stopPropagation(); handleOddClick("Match Result", pick, odd); }}
         disabled={!hasOdds}
-        className={`flex flex-col items-center justify-center w-14 h-11 rounded-md border transition ${
+        className={`flex flex-col items-center justify-center w-14 h-11 rounded-md border transition-all ${
           selected
-            ? "bg-wb-primary border-wb-primary text-black"
+            ? "bg-wb-primary border-wb-primary text-black font-bold" // Solid Green Fill
             : hasOdds
             ? "bg-wb-surface border-wb-border-strong text-white hover:border-wb-primary"
             : "bg-wb-bg border-wb-border text-wb-muted cursor-default"
@@ -60,15 +59,9 @@ export default function MatchCard({
       onClick={() => onOpenDetails(match)}
       className="group flex flex-col rounded-lg border border-wb-border bg-wb-bg overflow-hidden cursor-pointer hover:border-wb-border-strong transition"
     >
-      {/* Top Info Bar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-wb-surface/50 border-b border-wb-border text-[11px] text-wb-muted uppercase tracking-wider font-semibold">
         <div className="flex items-center gap-2 truncate">
           <span className="truncate">{match.league}</span>
-          {match.source === 'scorio' && ( // This is fine if we keep it, but TS complained because source is now 'bsd' | 'sportscore'
-             // Wait, the error said source doesn't have 'scorio'. Let me check bsd.ts.
-             // Yes, I changed source to 'bsd' | 'sportscore'. So I should remove 'scorio' check.
-             false
-          )}
         </div>
         <div>
           {match.status === "live" ? (
@@ -81,14 +74,12 @@ export default function MatchCard({
         </div>
       </div>
 
-      {/* Main Match Body */}
       <div className="flex items-stretch justify-between p-3 gap-4">
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
           <p className="text-sm font-bold text-white truncate">{match.homeTeam}</p>
           <p className="text-sm font-bold text-white truncate">{match.awayTeam}</p>
         </div>
 
-        {/* Odds Grid */}
         <div className="flex gap-1.5 shrink-0">
           {renderOddButton("1", "Home", homeOdd)}
           {renderOddButton("X", "Draw", drawOdd)}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUserStore } from "@/store/userStore";
 import { Match } from "@/lib/bsd";
-import { Loader2, Info } from "lucide-react";
+import { Loader2, Info, Search } from "lucide-react";
 import Link from "next/link";
 import MatchCard from "@/components/sports/MatchCard";
 import MatchDetailsModal from "@/components/sports/MatchDetailsModal";
@@ -21,12 +21,14 @@ export default function SportPage({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"upcoming" | "live">("upcoming");
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  
+  // Search State
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     async function loadMatches() {
       setLoading(true);
       try {
-        // Pass the sport parameter to the API
         const res = await fetch(`/api/sports?sport=${sport}`);
         if (res.ok) {
           const data = await res.json();
@@ -41,7 +43,22 @@ export default function SportPage({
     loadMatches();
   }, [sport]);
 
-  const filteredMatches = matches.filter((m) => m.status === activeTab);
+  // Filter logic combining Tab and Search
+  const filteredMatches = matches.filter((m) => {
+    // 1. Filter by Tab
+    if (m.status !== activeTab) return false;
+    
+    // 2. Filter by Search Query
+    if (searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase();
+      const matchesHome = m.homeTeam.toLowerCase().includes(query);
+      const matchesAway = m.awayTeam.toLowerCase().includes(query);
+      const matchesLeague = m.league.toLowerCase().includes(query);
+      return matchesHome || matchesAway || matchesLeague;
+    }
+    
+    return true;
+  });
 
   if (loading) {
     return (
@@ -69,7 +86,7 @@ export default function SportPage({
       )}
 
       {/* SportyBet Style Tabs */}
-      <div className="flex items-center gap-1 mb-4 bg-wb-surface p-1 rounded-xl border border-wb-border">
+      <div className="flex items-center gap-1 mb-3 bg-wb-surface p-1 rounded-xl border border-wb-border">
         <button
           onClick={() => setActiveTab("upcoming")}
           className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition ${
@@ -88,11 +105,25 @@ export default function SportPage({
         </button>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative mb-4">
+        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <Search className="h-4 w-4 text-wb-muted" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search team or league..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-xl border border-wb-border-strong bg-wb-surface py-3 pl-10 pr-4 text-sm text-white placeholder:text-wb-muted focus:border-wb-primary focus:outline-none"
+        />
+      </div>
+
       {/* Match List */}
       <div className="space-y-3">
         {filteredMatches.length === 0 ? (
           <div className="text-center py-12 text-wb-muted bg-wb-surface rounded-xl border border-wb-border">
-            <p>No {activeTab} matches available right now.</p>
+            <p>No {activeTab} matches found {searchQuery ? `for "${searchQuery}"` : "right now"}.</p>
           </div>
         ) : (
           filteredMatches.map((match) => (

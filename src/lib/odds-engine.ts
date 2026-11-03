@@ -6,56 +6,47 @@ export interface MarketOdds {
   outcomes: { label: string; odds: number }[];
 }
 
-// 1. Convert Decimal Odds to Implied Probability
 function toProb(odds: number): number {
   if (odds <= 1) return 0;
   return 1 / odds;
 }
 
-// 2. Convert Probability back to Decimal Odds (with margin)
 function toOdds(prob: number, margin: number = 0.06): number {
-  // Apply margin (e.g., 6% house edge)
   const adjustedProb = prob * (1 + margin);
   return Math.round((1 / adjustedProb) * 100) / 100;
 }
 
-// 3. The Dynamic Fluctuation Engine
-// Simulates odds moving based on time decay and "virtual liability"
+// UPDATED: Clamp odds between 1.06 and 250
 export function fluctuateOdds(baseOdds: number, timeElapsedMinutes: number, virtualLiability: number = 0): number {
   if (baseOdds <= 1.01) return 0;
 
-  // A. Time Decay: As the match approaches, odds for pre-match markets compress
-  // (e.g., 5 minutes before kickoff, odds drop slightly)
   const timeFactor = timeElapsedMinutes > 0 ? 1 - (timeElapsedMinutes * 0.001) : 1;
-
-  // B. Liability: If virtualLiability is positive, it means the book is "heavy" on this outcome,
-  // so we drop the odds to discourage more bets.
   const liabilityFactor = 1 - (virtualLiability * 0.005); 
-
   const adjusted = baseOdds * timeFactor * liabilityFactor;
-
-  // Add slight random jitter (±1%) to make it look organic
   const jitter = 1 + (Math.random() * 0.02 - 0.01);
   
-  return Math.max(1.01, Math.round(adjusted * jitter * 100) / 100);
+  let finalOdds = adjusted * jitter;
+  
+  // ENFORCE LIMITS: Highest 250, Lowest 1.06
+  if (finalOdds > 250) finalOdds = 250;
+  if (finalOdds < 1.06) finalOdds = 1.06;
+
+  return Math.round(finalOdds * 100) / 100;
 }
 
-// 4. THE MARKET GENERATOR
-// Takes raw 1X2 odds and generates the full SportyBet market suite
 export function generateMarkets(home: number, draw: number, away: number): MarketOdds[] {
   const pH = toProb(home);
   const pD = toProb(draw);
   const pA = toProb(away);
   const totalProb = pH + pD + pA;
 
-  // Normalize probabilities (remove the bookmaker's margin first)
   const nH = pH / totalProb;
   const nD = pD / totalProb;
   const nA = pA / totalProb;
 
   const markets: MarketOdds[] = [];
 
-  // Market 1: Match Result (1X2)
+  // 1X2
   markets.push({
     id: "1x2",
     name: "Match Result",
@@ -66,7 +57,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 2: Double Chance
+  // Double Chance
   markets.push({
     id: "dc",
     name: "Double Chance",
@@ -77,7 +68,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 3: Draw No Bet (DNB)
+  // Draw No Bet
   markets.push({
     id: "dnb",
     name: "Draw No Bet",
@@ -87,8 +78,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 4: Both Teams To Score (BTTS)
-  // Simplified derived probability (typically 50-60% in football)
+  // BTTS
   const pBTTS = 0.52; 
   markets.push({
     id: "btts",
@@ -99,7 +89,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 5: Over/Under 1.5 Goals
+  // O/U Goals
   markets.push({
     id: "ou_1_5",
     name: "Over/Under 1.5 Goals",
@@ -109,7 +99,6 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 6: Over/Under 2.5 Goals
   markets.push({
     id: "ou_2_5",
     name: "Over/Under 2.5 Goals",
@@ -119,7 +108,6 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 7: Over/Under 3.5 Goals
   markets.push({
     id: "ou_3_5",
     name: "Over/Under 3.5 Goals",
@@ -129,7 +117,35 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 8: Correct Score (Top 6 most likely)
+  // --- NEW MARKETS (Corners & Bookings) ---
+  markets.push({
+    id: "corners_ou",
+    name: "Total Corners (Over/Under 9.5)",
+    outcomes: [
+      { label: "Over 9.5", odds: toOdds(0.50) },
+      { label: "Under 9.5", odds: toOdds(0.50) },
+    ],
+  });
+
+  markets.push({
+    id: "bookings_ou",
+    name: "Total Bookings (Over/Under 4.5)",
+    outcomes: [
+      { label: "Over 4.5", odds: toOdds(0.45) },
+      { label: "Under 4.5", odds: toOdds(0.55) },
+    ],
+  });
+
+  markets.push({
+    id: "first_corner",
+    name: "First Corner",
+    outcomes: [
+      { label: "Home", odds: toOdds(0.55) },
+      { label: "Away", odds: toOdds(0.45) },
+    ],
+  });
+
+  // Correct Score
   markets.push({
     id: "cs",
     name: "Correct Score",
@@ -143,7 +159,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 9: Half Time / Full Time (HT/FT)
+  // HT/FT
   markets.push({
     id: "ht_ft",
     name: "HT/FT",
@@ -158,7 +174,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 10: Asian Handicap (-1, +1)
+  // Asian Handicap
   markets.push({
     id: "ah",
     name: "Asian Handicap",
@@ -168,7 +184,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 11: First Half Winner
+  // First Half Winner
   markets.push({
     id: "1h_1x2",
     name: "First Half Winner",
@@ -179,7 +195,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 12: Total Goals (0-1, 2-3, 4+)
+  // Total Goals
   markets.push({
     id: "total_goals",
     name: "Total Goals",
@@ -190,7 +206,7 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 13: Win to Nil
+  // Win to Nil
   markets.push({
     id: "win_to_nil",
     name: "Win to Nil",
@@ -200,25 +216,13 @@ export function generateMarkets(home: number, draw: number, away: number): Marke
     ],
   });
 
-  // Market 14: Odd/Even Goals
+  // Odd/Even
   markets.push({
     id: "odd_even",
     name: "Odd/Even Goals",
     outcomes: [
       { label: "Odd", odds: toOdds(0.48) },
       { label: "Even", odds: toOdds(0.52) },
-    ],
-  });
-
-  // Market 15: Half Time Correct Score
-  markets.push({
-    id: "ht_cs",
-    name: "Half Time Correct Score",
-    outcomes: [
-      { label: "0-0", odds: toOdds(0.40) },
-      { label: "1-0", odds: toOdds(0.20) },
-      { label: "0-1", odds: toOdds(0.15) },
-      { label: "1-1", odds: toOdds(0.15) },
     ],
   });
 
