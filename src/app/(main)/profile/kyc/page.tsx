@@ -3,13 +3,17 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useUserStore } from "@/store/userStore";
-import { Loader2, ShieldCheck, Upload, AlertCircle } from "lucide-react";
+import { Loader2, ShieldCheck, Upload, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export default function KycPage() {
   const [status, setStatus] = useState<string>("unverified");
   const [docType, setDocType] = useState("ghana_card");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  
+  const [frontFile, setFrontFile] = useState<File | null>(null);
+  const [backFile, setBackFile] = useState<File | null>(null);
+  const [frontPreview, setFrontPreview] = useState<string | null>(null);
+  const [backPreview, setBackPreview] = useState<string | null>(null);
+  
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -25,7 +29,7 @@ export default function KycPage() {
     loadStatus();
   }, []);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>, side: "front" | "back") {
     const selected = e.target.files?.[0];
     if (!selected) return;
     if (selected.size > 2 * 1024 * 1024) {
@@ -33,25 +37,31 @@ export default function KycPage() {
       return;
     }
     const reader = new FileReader();
-    reader.onloadend = () => setPreview(reader.result as string);
+    reader.onloadend = () => {
+      if (side === "front") setFrontPreview(reader.result as string);
+      else setBackPreview(reader.result as string);
+    };
     reader.readAsDataURL(selected);
-    setFile(selected);
+    if (side === "front") setFrontFile(selected);
+    else setBackFile(selected);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!preview) return setMessage("Please upload a document.");
+    if (!frontPreview) return setMessage("Please upload the front of your document.");
+    if (docType === "ghana_card" && !backPreview) return setMessage("Please upload the back of your Ghana Card.");
+    
     setSubmitting(true);
     setMessage(null);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. Insert into kyc_submissions
     const { error: insertError } = await supabase.from("kyc_submissions").insert({
       user_id: user.id,
       document_type: docType,
-      document_url: preview, // Base64 string
+      document_url: frontPreview, 
+      document_url_back: backPreview, 
       status: "pending"
     });
 
@@ -61,15 +71,14 @@ export default function KycPage() {
       return;
     }
 
-    // 2. Update profile status to pending
     await supabase.from("profiles").update({ 
       kyc_status: "pending",
-      kyc_document_url: preview
+      kyc_document_url: frontPreview
     }).eq("id", user.id);
 
     setStatus("pending");
     setSubmitting(false);
-    setMessage("Document submitted successfully. Pending admin approval.");
+    setMessage("Documents submitted successfully. Pending admin approval.");
   }
 
   if (loading) return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-wb-primary" /></div>;
@@ -102,24 +111,32 @@ export default function KycPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-wb-muted uppercase mb-1.5">Upload Document</label>
+            <label className="block text-xs font-semibold text-wb-muted uppercase mb-1.5">
+              {docType === "ghana_card" ? "Front of Ghana Card" : "Passport Bio Page"}
+            </label>
             <div className="relative border-2 border-dashed border-wb-border-strong rounded-xl p-6 text-center hover:bg-wb-sub transition">
-              <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+              <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "front")} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
               <Upload className="h-6 w-6 text-wb-muted mx-auto mb-2" />
-              <p className="text-sm text-white font-medium">{file ? file.name : "Click to upload image"}</p>
-              <p className="text-xs text-wb-muted mt-1">Max size 2MB</p>
+              <p className="text-sm text-white font-medium">{frontFile ? frontFile.name : "Click to upload front image"}</p>
             </div>
+            {frontPreview && <img src={frontPreview} alt="Front Preview" className="mt-3 w-full h-32 object-cover rounded-xl border border-wb-border-strong" />}
           </div>
 
-          {preview && (
-            <div className="rounded-xl overflow-hidden border border-wb-border-strong">
-              <img src={preview} alt="Preview" className="w-full h-40 object-cover" />
+          {docType === "ghana_card" && (
+            <div>
+              <label className="block text-xs font-semibold text-wb-muted uppercase mb-1.5">Back of Ghana Card</label>
+              <div className="relative border-2 border-dashed border-wb-border-strong rounded-xl p-6 text-center hover:bg-wb-sub transition">
+                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "back")} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <Upload className="h-6 w-6 text-wb-muted mx-auto mb-2" />
+                <p className="text-sm text-white font-medium">{backFile ? backFile.name : "Click to upload back image"}</p>
+              </div>
+              {backPreview && <img src={backPreview} alt="Back Preview" className="mt-3 w-full h-32 object-cover rounded-xl border border-wb-border-strong" />}
             </div>
           )}
 
           {message && <p className="text-sm text-wb-danger font-medium flex items-center gap-2"><AlertCircle className="h-4 w-4"/> {message}</p>}
 
-          <button type="submit" disabled={submitting || !file} className="w-full flex items-center justify-center gap-2 rounded-xl bg-wb-primary py-3 text-sm font-bold text-black transition hover:bg-wb-primary-hover disabled:opacity-40">
+          <button type="submit" disabled={submitting || !frontFile || (docType === 'ghana_card' && !backFile)} className="w-full flex items-center justify-center gap-2 rounded-xl bg-wb-primary py-3 text-sm font-bold text-black transition hover:bg-wb-primary-hover disabled:opacity-40">
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit for Verification"}
           </button>
         </form>
