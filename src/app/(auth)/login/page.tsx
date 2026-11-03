@@ -29,6 +29,7 @@ export default function LoginPage() {
     try {
       let email = id;
 
+      // Username path — resolve to email server-side
       if (!id.includes("@")) {
         const { data, error: rpcError } = await supabase.rpc("get_email_for_username", {
           p_username: id,
@@ -87,6 +88,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-wb-bg px-4 py-10">
       <div className="w-full max-w-md animate-fade-up">
+        {/* Brand */}
         <div className="mb-6 flex items-center justify-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-wb-primary">
             <Trophy className="h-5 w-5 text-black" />
@@ -115,7 +117,7 @@ export default function LoginPage() {
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="you@example.com or kwame_01"
+                placeholder="Enter your email or username"
                 autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
