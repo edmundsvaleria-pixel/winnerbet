@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useUserStore } from "@/store/userStore";
-import { Loader2, PlusCircle, CheckCircle, XCircle, FileText, Banknote } from "lucide-react";
+import { Loader2, PlusCircle, CheckCircle, XCircle, FileText, Banknote, Trash2 } from "lucide-react";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -24,7 +24,16 @@ export default function AdminPage() {
   const [drawOdds, setDrawOdds] = useState("3.00");
   const [awayOdds, setAwayOdds] = useState("3.50");
   
-  // New Market States (JSON Strings)
+  const [over15, setOver15] = useState("");
+  const [under15, setUnder15] = useState("");
+  const [over25, setOver25] = useState("");
+  const [under25, setUnder25] = useState("");
+  const [over35, setOver35] = useState("");
+  const [under35, setUnder35] = useState("");
+
+  // Custom Dynamic O/U Markets
+  const [customOU, setCustomOU] = useState<{ line: string; over: string; under: string }[]>([]);
+
   const [correctScore, setCorrectScore] = useState("");
   const [htFt, setHtFt] = useState("");
   const [result, setResult] = useState("");
@@ -65,25 +74,53 @@ export default function AdminPage() {
     if (activeTab === "withdrawals") loadWithdrawals();
   }, [activeTab]);
 
+  // --- CUSTOM O/U HANDLERS ---
+  function addCustomOU() {
+    setCustomOU([...customOU, { line: "", over: "", under: "" }]);
+  }
+
+  function updateCustomOU(index: number, field: "line" | "over" | "under", value: string) {
+    const updated = [...customOU];
+    updated[index][field] = value;
+    setCustomOU(updated);
+  }
+
+  function removeCustomOU(index: number) {
+    setCustomOU(customOU.filter((_, i) => i !== index));
+  }
+
   async function handleCreateMatch(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
     try {
+      // Format custom OU markets
+      const formattedCustomOU = customOU
+        .filter(item => item.line && item.over && item.under)
+        .map(item => ({
+          line: item.line,
+          over: Number(item.over),
+          under: Number(item.under)
+        }));
+
       const res = await fetch("/api/admin/create-match", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           league, homeTeam, awayTeam, startTime, 
-          homeOdds: Number(homeOdds), drawOdds: Number(drawOdds), awayOdds: Number(awayOdds),
-          correctScore, // Passed as a string
-          htFt,         // Passed as a string
-          result 
+          homeOdds, drawOdds, awayOdds,
+          over15, under15, over25, under25, over35, under35,
+          customOU: formattedCustomOU, // Pass the array
+          correctScore, htFt, result 
         }),
       });
       const data = await res.json();
       if (res.ok) {
         setMessage({ type: "success", text: "Match created successfully!" });
+        // Reset form
         setLeague(""); setHomeTeam(""); setAwayTeam(""); setStartTime(""); 
+        setHomeOdds("2.00"); setDrawOdds("3.00"); setAwayOdds("3.50");
+        setOver15(""); setUnder15(""); setOver25(""); setUnder25(""); setOver35(""); setUnder35("");
+        setCustomOU([]); // Reset custom markets
         setCorrectScore(""); setHtFt(""); setResult("");
       } else throw new Error(data.error);
     } catch (err: any) {
@@ -137,7 +174,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+    <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-5xl mx-auto pb-32">
       <h1 className="text-2xl font-bold text-white mb-6">Admin Dashboard</h1>
 
       <div className="flex gap-2 mb-6 bg-wb-surface p-1 rounded-xl border border-wb-border overflow-x-auto">
@@ -154,9 +191,9 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* CREATE MATCH TAB */}
       {activeTab === "create" && (
-        <form onSubmit={handleCreateMatch} className="space-y-6 rounded-2xl border border-wb-border bg-wb-surface p-6 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleCreateMatch} className="relative space-y-6 rounded-2xl border border-wb-border bg-wb-surface p-6">
+          
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">League</label><input required type="text" value={league} onChange={(e) => setLeague(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Start Time</label><input required type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
@@ -166,43 +203,84 @@ export default function AdminPage() {
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Away Team</label><input required type="text" value={awayTeam} onChange={(e) => setAwayTeam(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
           </div>
           
-          <div className="grid grid-cols-3 gap-4">
-            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Home (1)</label><input required type="number" step="0.01" value={homeOdds} onChange={(e) => setHomeOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
-            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Draw (X)</label><input required type="number" step="0.01" value={drawOdds} onChange={(e) => setDrawOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
-            <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Away (2)</label><input required type="number" step="0.01" value={awayOdds} onChange={(e) => setAwayOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+          <div className="border-t border-wb-border pt-4">
+            <h3 className="text-sm font-bold text-white mb-3">1X2 Odds</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Home (1)</label><input required type="number" step="0.01" value={homeOdds} onChange={(e) => setHomeOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Draw (X)</label><input required type="number" step="0.01" value={drawOdds} onChange={(e) => setDrawOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Away (2)</label><input required type="number" step="0.01" value={awayOdds} onChange={(e) => setAwayOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+            </div>
           </div>
 
+          {/* OVER/UNDER ODDS */}
+          <div className="border-t border-wb-border pt-4">
+            <h3 className="text-sm font-bold text-white mb-3">Standard Over/Under</h3>
+            <div className="grid grid-cols-2 gap-4 mb-3">
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Over 1.5</label><input type="number" step="0.01" value={over15} onChange={(e) => setOver15(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Under 1.5</label><input type="number" step="0.01" value={under15} onChange={(e) => setUnder15(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mb-3">
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Over 2.5</label><input type="number" step="0.01" value={over25} onChange={(e) => setOver25(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Under 2.5</label><input type="number" step="0.01" value={under25} onChange={(e) => setUnder25(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Over 3.5</label><input type="number" step="0.01" value={over35} onChange={(e) => setOver35(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+              <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Under 3.5</label><input type="number" step="0.01" value={under35} onChange={(e) => setUnder35(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
+            </div>
+          </div>
+
+          {/* DYNAMIC OVER/UNDER */}
+          <div className="border-t border-wb-border pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-white">Custom Over/Under</h3>
+              <button type="button" onClick={addCustomOU} className="flex items-center gap-1 rounded-lg bg-wb-primary/10 px-3 py-1.5 text-xs font-bold text-wb-primary hover:bg-wb-primary/20 transition">
+                <PlusCircle className="h-3.5 w-3.5" /> Add Custom Market
+              </button>
+            </div>
+            
+            {customOU.map((market, index) => (
+              <div key={index} className="grid grid-cols-4 gap-2 mb-2 items-end">
+                <div>
+                  <label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Line</label>
+                  <input type="number" step="0.25" placeholder="e.g. 4.5" value={market.line} onChange={(e) => updateCustomOU(index, "line", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Over Odds</label>
+                  <input type="number" step="0.01" placeholder="1.80" value={market.over} onChange={(e) => updateCustomOU(index, "over", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Under Odds</label>
+                  <input type="number" step="0.01" placeholder="2.00" value={market.under} onChange={(e) => updateCustomOU(index, "under", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" />
+                </div>
+                <button type="button" onClick={() => removeCustomOU(index)} className="rounded-lg bg-wb-danger/10 p-2 text-wb-danger hover:bg-wb-danger/20 transition mb-0.5">
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* TEXT MARKETS */}
           <div className="border-t border-wb-border pt-4 space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Correct Score Odds (JSON)</label>
-              <textarea 
-                value={correctScore} 
-                onChange={(e) => setCorrectScore(e.target.value)} 
-                placeholder='{"1-0": 7.50, "2-0": 9.00, "2-1": 8.50, "1-1": 6.50}'
-                className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white font-mono h-24" 
-              />
+              <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Correct Score Odds</label>
+              <input type="text" value={correctScore} onChange={(e) => setCorrectScore(e.target.value)} placeholder="e.g. 2.50" className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">HT/FT Odds (JSON)</label>
-              <textarea 
-                value={htFt} 
-                onChange={(e) => setHtFt(e.target.value)} 
-                placeholder='{"1/1": 2.80, "X/1": 4.80, "2/2": 9.00}'
-                className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white font-mono h-24" 
-              />
+              <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">HT/FT Odds</label>
+              <input type="text" value={htFt} onChange={(e) => setHtFt(e.target.value)} placeholder="e.g. 4.80" className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" />
             </div>
           </div>
 
-          <div className="border-t border-wb-border pt-4">
-            <div>
-              <label className="block text-xs font-semibold text-wb-primary uppercase mb-1">Final Result (For Settlement)</label>
-              <input type="text" value={result} onChange={(e) => setResult(e.target.value)} placeholder="e.g. 2-1 (Leave blank if not finished)" className="w-full rounded-xl border border-wb-primary/50 bg-wb-sub px-4 py-2.5 text-sm text-white" />
+          {/* STICKY FOOTER */}
+          <div className="sticky bottom-0 -mx-6 -mb-6 bg-wb-surface p-6 border-t border-wb-border-strong shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-wb-primary uppercase mb-1">Final Result (For Settlement)</label>
+              <input type="text" value={result} onChange={(e) => setResult(e.target.value)} placeholder="e.g. 2-1 (Leave blank if not finished)" className="w-full rounded-xl border border-wb-primary/50 bg-wb-sub px-4 py-3 text-sm text-white font-bold" />
             </div>
+            <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-wb-primary py-4 text-sm font-bold text-black hover:bg-wb-primary-hover disabled:opacity-40">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} Create Match
+            </button>
           </div>
-
-          <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-wb-primary py-3 text-sm font-bold text-black hover:bg-wb-primary-hover disabled:opacity-40 mt-4">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} Create Match with Markets
-          </button>
         </form>
       )}
 

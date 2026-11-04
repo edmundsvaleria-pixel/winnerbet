@@ -10,48 +10,46 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { 
-      league, homeTeam, awayTeam, startTime, 
-      homeOdds, drawOdds, awayOdds, result,
-      correctScore, htFt // New JSON fields
-    } = await req.json();
+    const data = await req.json();
 
-    if (!league || !homeTeam || !awayTeam || !startTime) {
+    if (!data.league || !data.homeTeam || !data.awayTeam || !data.startTime) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Parse the JSON strings safely
-    let parsedCorrectScore = null;
-    let parsedHtFt = null;
-    try {
-      if (correctScore) parsedCorrectScore = JSON.parse(correctScore);
-      if (htFt) parsedHtFt = JSON.parse(htFt);
-    } catch (e) {
-      return NextResponse.json({ error: "Invalid JSON format for Correct Score or HT/FT" }, { status: 400 });
-    }
-
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("matches")
       .insert({
         sport: "football",
-        league,
-        home_team: homeTeam,
-        away_team: awayTeam,
-        start_time: new Date(startTime).toISOString(),
-        home_odds: Number(homeOdds) || 2.00,
-        draw_odds: Number(drawOdds) || 3.00,
-        away_odds: Number(awayOdds) || 3.50,
-        result: result || null,
-        correct_score_odds: parsedCorrectScore,
-        ht_ft_odds: parsedHtFt,
+        league: data.league,
+        home_team: data.homeTeam,
+        away_team: data.awayTeam,
+        start_time: new Date(data.startTime).toISOString(),
+        home_odds: Number(data.homeOdds) || 2.00,
+        draw_odds: Number(data.drawOdds) || 3.00,
+        away_odds: Number(data.awayOdds) || 3.50,
+        
+        // Standard Markets
+        over_1_5: Number(data.over15) || null,
+        under_1_5: Number(data.under15) || null,
+        over_2_5: Number(data.over25) || null,
+        under_2_5: Number(data.under25) || null,
+        over_3_5: Number(data.over35) || null,
+        under_3_5: Number(data.under35) || null,
+
+        // Custom Dynamic Markets (JSON)
+        custom_ou_markets: data.customOU || [],
+
+        // Text Fields
+        correct_score: data.correctScore || null,
+        ht_ft: data.htFt || null,
+        
+        result: data.result || null,
         status: "upcoming"
-      })
-      .select()
-      .single();
+      });
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, match: data });
+    return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Create match error:", err);
     return NextResponse.json({ error: err.message || "Failed to create match" }, { status: 500 });
