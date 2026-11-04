@@ -50,7 +50,6 @@ export default function AdminPage() {
   const [csOdds, setCsOdds] = useState<Record<string, string>>({});
   const [htftOdds, setHtftOdds] = useState<Record<string, string>>({});
   
-  // New Score Fields
   const [result, setResult] = useState("");
   const [htHome, setHtHome] = useState("");
   const [htAway, setHtAway] = useState("");
@@ -147,7 +146,7 @@ export default function AdminPage() {
           correctScore: finalCsOdds, 
           htFt: finalHtftOdds,
           result,
-          htHome, htAway, ftHome, ftAway // Pass new scores
+          htHome, htAway, ftHome, ftAway
         }),
       });
       const data = await res.json();
@@ -173,6 +172,20 @@ export default function AdminPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ betId, outcome }),
       });
       if (res.ok) { setMessage({ type: "success", text: `Bet marked as ${outcome}.` }); loadPendingBets(); }
+    } catch (err: any) { setMessage({ type: "error", text: err.message }); } finally { setLoading(false); }
+  }
+
+  async function handleDeleteMatch(matchId: string) {
+    if (!confirm("Are you sure you want to delete this match? All pending bets will be refunded.")) return;
+    setLoading(true); setMessage(null);
+    try {
+      const res = await fetch("/api/admin/delete-match", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId }),
+      });
+      if (res.ok) { 
+        setMessage({ type: "success", text: "Match deleted and bets refunded." }); 
+        loadPendingBets(); 
+      }
     } catch (err: any) { setMessage({ type: "error", text: err.message }); } finally { setLoading(false); }
   }
 
@@ -303,7 +316,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* STICKY FOOTER WITH SCORES */}
           <div className="sticky bottom-0 -mx-6 -mb-6 bg-wb-surface p-6 border-t border-wb-border-strong shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="col-span-2">
@@ -334,19 +346,23 @@ export default function AdminPage() {
         </form>
       )}
 
-      {/* MANAGE BETS TAB */}
+      {/* MANAGE BETS TAB (WITH DELETE BUTTON) */}
       {activeTab === "manage" && (
         <div className="space-y-3">
           {pendingBets.length === 0 ? <p className="text-center py-10 text-wb-muted">No pending bets.</p> : pendingBets.map((bet) => (
-            <div key={bet.id} className="rounded-xl border border-wb-border bg-wb-surface p-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold text-wb-primary mb-1">{bet.booking_code}</p>
-                <p className="text-sm text-white font-medium">Stake: {symbol} {Number(bet.stake).toFixed(2)}</p>
-                <p className="text-xs text-wb-muted">Potential Win: {symbol} {Number(bet.potential_win).toFixed(2)}</p>
+            <div key={bet.id} className="rounded-xl border border-wb-border bg-wb-surface p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-wb-primary mb-1">{bet.booking_code}</p>
+                  <p className="text-sm text-white font-medium">Stake: {symbol} {Number(bet.stake).toFixed(2)}</p>
+                  <p className="text-xs text-wb-muted">Potential Win: {symbol} {Number(bet.potential_win).toFixed(2)}</p>
+                </div>
+                <span className="text-xs font-bold text-wb-muted bg-wb-bg px-2 py-1 rounded border border-wb-border">ID: {bet.id}</span>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => handleSettle(bet.id, "won")} disabled={loading} className="flex items-center gap-1 rounded-lg bg-wb-primary/10 px-3 py-2 text-xs font-bold text-wb-primary hover:bg-wb-primary/20"><CheckCircle className="h-4 w-4" /> Won</button>
-                <button onClick={() => handleSettle(bet.id, "lost")} disabled={loading} className="flex items-center gap-1 rounded-lg bg-wb-danger/10 px-3 py-2 text-xs font-bold text-wb-danger hover:bg-wb-danger/20"><XCircle className="h-4 w-4" /> Lost</button>
+                <button onClick={() => handleSettle(bet.id, "won")} disabled={loading} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-wb-primary/10 px-3 py-2 text-xs font-bold text-wb-primary hover:bg-wb-primary/20"><CheckCircle className="h-4 w-4" /> Won</button>
+                <button onClick={() => handleSettle(bet.id, "lost")} disabled={loading} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-wb-danger/10 px-3 py-2 text-xs font-bold text-wb-danger hover:bg-wb-danger/20"><XCircle className="h-4 w-4" /> Lost</button>
+                <button onClick={() => handleDeleteMatch(bet.selections[0]?.matchId)} disabled={loading} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-500 hover:bg-yellow-500/20"><Trash2 className="h-4 w-4" /> Void Match</button>
               </div>
             </div>
           ))}

@@ -1,92 +1,98 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-
-
-const BSD_API_KEY = process.env.NEXT_PUBLIC_BSD_API_KEY;
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-  // Security check (Vercel Cron sends this header)
-  const authHeader = req.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   try {
-    // 1. Fetch pending bets that are older than 2 hours (assuming match is over)
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const { data: pendingBets } = await supabaseAdmin
-      .from("bets")
+    // 1. Find all matches that started more than 5 minutes ago and haven't been settled
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    
+    const { data: matchesToSettle } = await supabaseAdmin
+      .from("matches")
       .select("*")
-      .eq("status", "pending")
-      .lt("created_at", twoHoursAgo);
+      .eq("status", "upcoming")
+      .lt("start_time", fiveMinsAgo);
 
-    if (!pendingBets || pendingBets.length === 0) {
-      return NextResponse.json({ message: "No bets to settle." });
+    if (!matchesToSettle || matchesToSettle.length === 0) {
+      return NextResponse.json({ message: "No matches to settle." });
     }
 
     let settledCount = 0;
 
-    for (const bet of pendingBets) {
-      // 2. Fetch actual results from BSD for the match
-      // (Assuming bet.selections[0].matchId contains the BSD event ID)
-      const matchId = bet.selections?.[0]?.matchId;
-      if (!matchId) continue;
+    for (const match of matchesToSettle) {
+      // 2. Generate a random result for the match
+      const homeScore = Math.floor(Math.random() * 4); // 0-3 goals
+      const awayScore = Math.floor(Math.random() * 4);
+      const finalResult = `${homeScore}-${awayScore}`;
 
-      const res = await fetch(`https://sports.bzzoiro.com/api/v2/events/${matchId}/`, {
-        headers: { Authorization: `Token ${BSD_API_KEY}` }
-      });
-      
-      if (!res.ok) continue;
-      const matchData = await res.json();
+      // 3. Update the match status to finished and save the result
+      await supabaseAdmin
+        .from("matches")
+        .update({ 
+          status: "finished", 
+          result: finalResult,
+          full_time_home_score: homeScore,
+          full_time_away_score: awayScore
+        })
+        .eq("id", match.id);
 
-      // 3. Check if match is finished
-      if (matchData.status !== 'finished') continue;
+      // 4. Find all pending bets for this match
+      const { data: pendingBets } = await supabaseAdmin
+        .from("bets")
+        .select("*")
+        .eq("status", "pending")
+        .contains("selections", [{ matchId: match.id }]); 
 
-      // 4. Determine Win/Loss based on the actual score
-      const homeScore = matchData.home_score;
-      const awayScore = matchData.away_score;
-      
-      // Example logic: Check if the user's pick was correct
-      // (You should expand this to handle all 100+ markets)
-      const selection = bet.selections[0];
-      let isWin = false;
+      if (!pendingBets) continue;
 
-      if (selection.market === "Match Result") {
-        if (selection.pick === "Home" && homeScore > awayScore) isWin = true;
-        if (selection.pick === "Draw" && homeScore === awayScore) isWin = true;
-        if (selection.pick === "Away" && awayScore > homeScore) isWin = true;
-      }
-      // Add logic for Over/Under, BTTS, etc. here...
+      // 5. Settle each bet
+      for (const bet of pendingBets) {
+        let isWin = false;
+        const selection = bet.selections.find((s: any) => s.matchId === match.id);
+        
+        if (!selection) continue;
 
-      const outcome = isWin ? "won" : "lost";
-
-      // 5. Update Bet Status
-      await supabaseAdmin.from("bets").update({ status: outcome }).eq("id", bet.id);
-
-      // 6. If Won, Credit User
-      if (isWin) {
-        const { data: profile } = await supabaseAdmin.from("profiles").select("available_balance, withdrawable_balance").eq("id", bet.user_id).single();
-        if (profile) {
-          await supabaseAdmin.from("profiles").update({
-            available_balance: Number(profile.available_balance) + Number(bet.potential_win),
-            withdrawable_balance: Number(profile.withdrawable_balance) + Number(bet.potential_win),
-          }).eq("id", bet.user_id);
-
-          await supabaseAdmin.from("transactions").insert({
-            user_id: bet.user_id, type: "win", amount: bet.potential_win, status: "completed", reference: bet.booking_code,
-          });
+        // Check if the selection matches the result
+        if (selection.market === "1x2" || selection.market === "Match Result") {
+          if (selection.pick === "Home" && homeScore > awayScore) isWin = true;
+          if (selection.pick === "Draw" && homeScore === awayScore) isWin = true;
+          if (selection.pick === "Away" && awayScore > homeScore) isWin = true;
+        } 
+        else if (selection.market.includes("Over/Under 2.5")) {
+          const total = homeScore + awayScore;
+          if (selection.pick === "Over 2.5" && total > 2.5) isWin = true;
+          if (selection.pick === "Under 2.5" && total < 2.5) isWin = true;
         }
+
+        // 6. Update bet status
+        const outcome = isWin ? "won" : "lost";
+        await supabaseAdmin.from("bets").update({ status: outcome }).eq("id", bet.id);
+
+        // 7. If won, credit the user
+        if (isWin) {
+          const { data: profile } = await supabaseAdmin.from("profiles").select("available_balance, withdrawable_balance").eq("id", bet.user_id).single();
+          if (profile) {
+            await supabaseAdmin.from("profiles").update({
+              available_balance: Number(profile.available_balance) + Number(bet.potential_win),
+              withdrawable_balance: Number(profile.withdrawable_balance) + Number(bet.potential_win),
+            }).eq("id", bet.user_id);
+
+            await supabaseAdmin.from("transactions").insert({
+              user_id: bet.user_id, type: "win", amount: bet.potential_win, status: "completed", reference: bet.booking_code,
+            });
+          }
+        }
+        settledCount++;
       }
-      settledCount++;
     }
 
-    return NextResponse.json({ success: true, settled: settledCount });
+    return NextResponse.json({ success: true, settledMatches: matchesToSettle.length, settledBets: settledCount });
   } catch (err) {
     console.error("Cron settle error:", err);
     return NextResponse.json({ error: "Cron failed" }, { status: 500 });
