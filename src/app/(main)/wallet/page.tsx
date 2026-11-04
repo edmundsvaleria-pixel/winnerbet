@@ -1,11 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useUserStore } from "@/store/userStore";
-import DepositModal from "@/components/wallet/DepositModal";
 import { Wallet, TrendingUp, Plus, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+
+// Load DepositModal only on the client side to avoid SSR window errors
+const DepositModal = dynamic(() => import("@/components/wallet/DepositModal"), { 
+  ssr: false 
+});
 
 export default function WalletPage() {
   const symbol = useUserStore((s) => s.symbol);
@@ -17,7 +22,6 @@ export default function WalletPage() {
   const [showDeposit, setShowDeposit] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Sync balances on mount
   useEffect(() => {
     async function syncBalance() {
       setRefreshing(true);
@@ -56,8 +60,7 @@ export default function WalletPage() {
       <div className="grid gap-3 sm:grid-cols-2 mb-6">
         <div className="rounded-2xl border border-wb-border bg-wb-surface p-5">
           <div className="flex items-center gap-2 text-wb-muted text-xs uppercase tracking-wide mb-1">
-            <Wallet className="h-4 w-4" />
-            Available Balance
+            <Wallet className="h-4 w-4" /> Available Balance
           </div>
           <p className="text-2xl font-bold text-white tabular-nums">
             {symbol} {balance.toFixed(2)}
@@ -66,8 +69,7 @@ export default function WalletPage() {
 
         <div className="rounded-2xl border border-wb-border bg-wb-surface p-5">
           <div className="flex items-center gap-2 text-wb-muted text-xs uppercase tracking-wide mb-1">
-            <TrendingUp className="h-4 w-4" />
-            Withdrawable
+            <TrendingUp className="h-4 w-4" /> Withdrawable
           </div>
           <p className="text-2xl font-bold text-wb-primary tabular-nums">
             {symbol} {withdrawable.toFixed(2)}
@@ -80,8 +82,7 @@ export default function WalletPage() {
           onClick={() => setShowDeposit(true)}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-wb-primary py-3 text-sm font-bold text-black transition hover:bg-wb-primary-hover"
         >
-          <Plus className="h-4 w-4" />
-          Deposit
+          <Plus className="h-4 w-4" /> Deposit
         </button>
         <Link
           href="/wallet/withdraw"

@@ -6,8 +6,6 @@ import Link from "next/link";
 import { useUserStore } from "@/store/userStore";
 import { supabase } from "@/lib/supabase/client";
 import { ArrowLeft, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
-// @ts-ignore
-import PaystackPop from "@paystack/inline-js";
 
 const MIN_WITHDRAWAL = 10000;
 const COMMISSION_RATE = 0.10; // 10%
@@ -62,6 +60,8 @@ export default function WithdrawPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Dynamically import Paystack only when needed (client-side)
+    const PaystackPop = (await import("@paystack/inline-js")).default;
     const paystack = new PaystackPop();
     
     paystack.newTransaction({
@@ -69,31 +69,18 @@ export default function WithdrawPage() {
       email: user.email!,
       amount: Math.round(commission * 100), // Convert GHS to Pesewas
       currency: "GHS",
-      onSuccess: async (transaction: any) => {
-        // 1. Log commission transaction
+      onSuccess: async (transaction: { reference: string }) => { // Typed properly instead of 'any'
         await supabase.from("transactions").insert({
-          user_id: user.id,
-          type: "commission",
-          amount: commission,
-          status: "completed",
-          reference: transaction.reference,
+          user_id: user.id, type: "commission", amount: commission, status: "completed", reference: transaction.reference,
         });
 
-        // 2. Create withdrawal request for Admin
         const { error } = await supabase.from("withdrawal_requests").insert({
-          user_id: user.id,
-          amount: amountNum,
-          commission_amount: commission,
-          momo_number: momoNumber,
-          network: network,
-          status: "pending_admin", // Commission paid, waiting for Admin
+          user_id: user.id, amount: amountNum, commission_amount: commission, momo_number: momoNumber, network: network, status: "pending_admin",
         });
 
-        if (!error) {
-          setStep("success");
-        } else {
-          alert("Error creating withdrawal request: " + error.message);
-        }
+        if (!error) setStep("success");
+        else alert("Error creating withdrawal request: " + error.message);
+        
         setPaying(false);
       },
       onCancel: () => setPaying(false),
@@ -155,7 +142,6 @@ export default function WithdrawPage() {
               <label className="block text-xs font-semibold text-wb-muted uppercase mb-1.5">Amount ({symbol})</label>
               <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={`Min ${MIN_WITHDRAWAL}`} disabled={!hasMinDeposits || !isVerified} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-3 text-sm text-white placeholder:text-wb-muted focus:border-wb-primary focus:outline-none disabled:opacity-50" />
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-wb-muted uppercase mb-1.5">Mobile Money Network</label>
               <select value={network} onChange={(e) => setNetwork(e.target.value)} disabled={!hasMinDeposits || !isVerified} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-3 text-sm text-white focus:border-wb-primary focus:outline-none disabled:opacity-50">
@@ -164,12 +150,10 @@ export default function WithdrawPage() {
                 <option value="AirtelTigo">AirtelTigo Money</option>
               </select>
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-wb-muted uppercase mb-1.5">Mobile Money Number</label>
               <input type="tel" value={momoNumber} onChange={(e) => setMomoNumber(e.target.value)} placeholder="e.g. 0551234567" disabled={!hasMinDeposits || !isVerified} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-3 text-sm text-white placeholder:text-wb-muted focus:border-wb-primary focus:outline-none disabled:opacity-50" />
             </div>
-
             <button type="submit" disabled={!isValid} className="w-full rounded-xl bg-wb-primary py-3.5 text-sm font-bold text-black transition hover:bg-wb-primary-hover disabled:cursor-not-allowed disabled:opacity-40 mt-6">
               Continue to Commission
             </button>
