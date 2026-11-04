@@ -49,7 +49,13 @@ export default function AdminPage() {
   const [customOU, setCustomOU] = useState<{ line: string; over: string; under: string }[]>([]);
   const [csOdds, setCsOdds] = useState<Record<string, string>>({});
   const [htftOdds, setHtftOdds] = useState<Record<string, string>>({});
+  
+  // New Score Fields
   const [result, setResult] = useState("");
+  const [htHome, setHtHome] = useState("");
+  const [htAway, setHtAway] = useState("");
+  const [ftHome, setFtHome] = useState("");
+  const [ftAway, setFtAway] = useState("");
 
   // --- FETCHED DATA STATE ---
   const [pendingBets, setPendingBets] = useState<any[]>([]);
@@ -109,8 +115,6 @@ export default function AdminPage() {
     const updated = [...customOU]; updated[index][field] = value; setCustomOU(updated);
   }
   function removeCustomOU(index: number) { setCustomOU(customOU.filter((_, i) => i !== index)); }
-  
-  // New clear buttons
   function clearCorrectScore() { setCsOdds({}); }
   function clearHtFt() { setHtftOdds({}); }
 
@@ -142,7 +146,8 @@ export default function AdminPage() {
           customOU: formattedCustomOU,
           correctScore: finalCsOdds, 
           htFt: finalHtftOdds,
-          result 
+          result,
+          htHome, htAway, ftHome, ftAway // Pass new scores
         }),
       });
       const data = await res.json();
@@ -151,7 +156,8 @@ export default function AdminPage() {
         setLeague(""); setHomeTeam(""); setAwayTeam(""); setStartTime(""); 
         setHomeOdds("2.00"); setDrawOdds("3.00"); setAwayOdds("3.50");
         setOver15(""); setUnder15(""); setOver25(""); setUnder25(""); setOver35(""); setUnder35("");
-        setCustomOU([]); setCsOdds({}); setHtftOdds({}); setResult("");
+        setCustomOU([]); setCsOdds({}); setHtftOdds({}); 
+        setResult(""); setHtHome(""); setHtAway(""); setFtHome(""); setFtAway("");
       } else throw new Error(data.error);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
@@ -297,10 +303,29 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* STICKY FOOTER WITH SCORES */}
           <div className="sticky bottom-0 -mx-6 -mb-6 bg-wb-surface p-6 border-t border-wb-border-strong shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-            <div className="mb-4">
-              <label className="block text-xs font-bold text-wb-primary uppercase mb-1">Final Result (For Settlement)</label>
-              <input type="text" value={result} onChange={(e) => setResult(e.target.value)} placeholder="e.g. 2-1" className="w-full rounded-xl border border-wb-primary/50 bg-wb-sub px-4 py-3 text-sm text-white font-bold" />
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-wb-primary uppercase mb-1">Final Result (For Settlement)</label>
+                <input type="text" value={result} onChange={(e) => setResult(e.target.value)} placeholder="e.g. 2-1" className="w-full rounded-xl border border-wb-primary/50 bg-wb-sub px-4 py-3 text-sm text-white font-bold" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">HT Home Score</label>
+                <input type="number" value={htHome} onChange={(e) => setHtHome(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">HT Away Score</label>
+                <input type="number" value={htAway} onChange={(e) => setHtAway(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">FT Home Score</label>
+                <input type="number" value={ftHome} onChange={(e) => setFtHome(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">FT Away Score</label>
+                <input type="number" value={ftAway} onChange={(e) => setFtAway(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2 text-sm text-white" />
+              </div>
             </div>
             <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-wb-primary py-4 text-sm font-bold text-black hover:bg-wb-primary-hover disabled:opacity-40">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} Create Match

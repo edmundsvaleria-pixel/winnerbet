@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { generateTimeline } from "@/lib/match-engine";
 
 export const dynamic = 'force-dynamic';
 
@@ -16,15 +17,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Format Correct Score into a simple string: "1-0:7.50, 2-0:9.00"
+    // Format Correct Score and HT/FT
     const csString = data.correctScore && Object.keys(data.correctScore).length > 0 
-      ? Object.entries(data.correctScore).map(([k, v]) => `${k}:${v}`).join(', ')
-      : null;
-
-    // Format HT/FT into a simple string: "1/1:2.80, X/1:4.80"
+      ? Object.entries(data.correctScore).map(([k, v]) => `${k}:${v}`).join(', ') : null;
     const htftString = data.htFt && Object.keys(data.htFt).length > 0
-      ? Object.entries(data.htFt).map(([k, v]) => `${k}:${v}`).join(', ')
-      : null;
+      ? Object.entries(data.htFt).map(([k, v]) => `${k}:${v}`).join(', ') : null;
+
+    // Generate the hidden timeline for this match based on the result
+    const timeline = generateTimeline(data.result || null);
 
     const { error } = await supabaseAdmin
       .from("matches")
@@ -51,6 +51,7 @@ export async function POST(req: Request) {
         ht_ft: htftString,
         
         result: data.result || null,
+        timeline: timeline, // Save the random timeline
         status: "upcoming"
       });
 
