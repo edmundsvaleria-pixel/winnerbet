@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LifeBuoy, Mail, MessageCircle, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react";
+import { LifeBuoy, Mail, MessageCircle, ChevronDown, CheckCircle2 } from "lucide-react";
 
 const FAQS = [
   { q: "How long do deposits take?", a: "Deposits via Mobile Money and Card are processed instantly." },
@@ -54,12 +54,12 @@ export default function SupportPage() {
             <a href="mailto:support@riggedwin.site" className="flex flex-col items-center justify-center rounded-xl border border-wb-border bg-wb-surface p-4 hover:border-wb-primary transition">
               <Mail className="h-6 w-6 text-wb-primary mb-2" />
               <span className="text-xs font-bold text-white">Email Us</span>
-              <span className="text-[10px] text-wb-muted mt-1">support@riggedwin.site</span>
+              <span className="text-[10px] text-wb-muted mt-1 text-center">support@riggedwin.site</span>
             </a>
-            <a href="https://wa.me/233000000000" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center rounded-xl border border-wb-border bg-wb-surface p-4 hover:border-wb-primary transition">
+            <a href="https://wa.me/" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center rounded-xl border border-wb-border bg-wb-surface p-4 hover:border-wb-primary transition">
               <MessageCircle className="h-6 w-6 text-wb-primary mb-2" />
               <span className="text-xs font-bold text-white">WhatsApp</span>
-              <span className="text-[10px] text-wb-muted mt-1">+233 00 000 0000</span>
+              <span className="text-[10px] text-wb-muted mt-1 text-center">Coming Soon</span>
             </a>
           </div>
 

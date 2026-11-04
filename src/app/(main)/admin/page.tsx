@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useUserStore } from "@/store/userStore";
+import Link from "next/link";
 import { 
   Loader2, PlusCircle, CheckCircle, XCircle, FileText, 
-  Banknote, BarChart3, TrendingUp, AlertTriangle, DollarSign, Trash2, RotateCcw
+  Banknote, BarChart3, TrendingUp, AlertTriangle, DollarSign, Trash2, RotateCcw, Mail
 } from "lucide-react";
 
 const CS_OUTCOMES = [
@@ -175,15 +176,15 @@ export default function AdminPage() {
     } catch (err: any) { setMessage({ type: "error", text: err.message }); } finally { setLoading(false); }
   }
 
-  async function handleDeleteMatch(matchId: string) {
-    if (!confirm("Are you sure you want to delete this match? All pending bets will be refunded.")) return;
+  async function handleVoidMatch(matchId: string) {
+    if (!confirm("Are you sure you want to void this match? All pending bets will be refunded.")) return;
     setLoading(true); setMessage(null);
     try {
-      const res = await fetch("/api/admin/delete-match", {
+      const res = await fetch("/api/admin/void-match", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId }),
       });
       if (res.ok) { 
-        setMessage({ type: "success", text: "Match deleted and bets refunded." }); 
+        setMessage({ type: "success", text: "Match voided and bets refunded." }); 
         loadPendingBets(); 
       }
     } catch (err: any) { setMessage({ type: "error", text: err.message }); } finally { setLoading(false); }
@@ -214,12 +215,18 @@ export default function AdminPage() {
     <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-5xl mx-auto pb-32">
       <h1 className="text-2xl font-bold text-white mb-6">Admin Dashboard</h1>
 
+      {/* TABS INCLUDING EMAIL BUTTON */}
       <div className="flex gap-2 mb-6 bg-wb-surface p-1 rounded-xl border border-wb-border overflow-x-auto">
         {(["create", "manage", "kyc", "withdrawals", "analytics"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition capitalize ${activeTab === tab ? "bg-wb-primary text-black" : "text-wb-muted hover:text-white"}`}>
             {tab === "kyc" ? "KYC" : tab === "withdrawals" ? "Payouts" : tab === "analytics" ? "Analytics" : tab}
           </button>
         ))}
+        
+        {/* Email Button Link */}
+        <Link href="/admin/send-email" className="flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition capitalize text-wb-primary border border-wb-primary/50 hover:bg-wb-primary/10 flex items-center justify-center gap-1.5">
+          <Mail className="h-4 w-4" /> Email
+        </Link>
       </div>
 
       {message && (
@@ -316,6 +323,7 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* STICKY FOOTER */}
           <div className="sticky bottom-0 -mx-6 -mb-6 bg-wb-surface p-6 border-t border-wb-border-strong shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="col-span-2">
@@ -346,7 +354,7 @@ export default function AdminPage() {
         </form>
       )}
 
-      {/* MANAGE BETS TAB (WITH DELETE BUTTON) */}
+      {/* MANAGE BETS TAB */}
       {activeTab === "manage" && (
         <div className="space-y-3">
           {pendingBets.length === 0 ? <p className="text-center py-10 text-wb-muted">No pending bets.</p> : pendingBets.map((bet) => (
@@ -362,7 +370,7 @@ export default function AdminPage() {
               <div className="flex gap-2">
                 <button onClick={() => handleSettle(bet.id, "won")} disabled={loading} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-wb-primary/10 px-3 py-2 text-xs font-bold text-wb-primary hover:bg-wb-primary/20"><CheckCircle className="h-4 w-4" /> Won</button>
                 <button onClick={() => handleSettle(bet.id, "lost")} disabled={loading} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-wb-danger/10 px-3 py-2 text-xs font-bold text-wb-danger hover:bg-wb-danger/20"><XCircle className="h-4 w-4" /> Lost</button>
-                <button onClick={() => handleDeleteMatch(bet.selections[0]?.matchId)} disabled={loading} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-500 hover:bg-yellow-500/20"><Trash2 className="h-4 w-4" /> Void Match</button>
+                <button onClick={() => handleVoidMatch(bet.selections[0]?.matchId)} disabled={loading} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-500 hover:bg-yellow-500/20"><Trash2 className="h-4 w-4" /> Void Match</button>
               </div>
             </div>
           ))}
