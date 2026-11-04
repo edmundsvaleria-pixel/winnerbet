@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// Make sure we are using the Service Role Key for admin privileges
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.PAYSTACK_SECRET_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: Request) {
@@ -21,53 +22,75 @@ export async function POST(req: Request) {
       .eq("id", betId)
       .single();
 
-    if (betError || !bet) throw new Error("Bet not found");
-    if (bet.status !== "pending") throw new Error("Bet is already settled or cashed out");
+    if (betError || !bet) {
+      console.error("Bet fetch error:", betError);
+      return NextResponse.json({ error: "Bet not found" }, { status: 404 });
+    }
+
+    if (bet.status !== "pending") {
+      return NextResponse.json({ error: "Bet is already settled or cashed out" }, { status: 400 });
+    }
 
     // 2. Calculate Cash Out Value
-    // In a real app, this should fetch the current live odds of all selections.
-    // For this mock, we'll offer 85% of the potential win if the bet is looking good,
-    // or 90% of the stake as a consolation.
-    // For a simple implementation, let's just give them 80% of their stake back as the "cash out" value.
-    const cashOutValue = Number(bet.stake) * 0.80; 
+    // For this demo, we give 80% of the stake back. 
+    // In production, this would use live odds to calculate a fair value.
+    const cashOutValue = Number(bet.stake) * 0.80;
 
-    // 3. Update bet status to 'cashed_out'
+    // 3. Update bet status
     const { error: updateError } = await supabaseAdmin
       .from("bets")
-      .update({ status: "lost" }) // We'll mark as lost to remove from pending, but credit the cashout
+      .update({ 
+        status: "lost", // Marked as lost so it doesn't get settled again
+        is_cashed_out: true
+      })
       .eq("id", betId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error("Bet update error:", updateError);
+      throw new Error("Failed to update bet status");
+    }
 
-    // 4. Credit user's wallet
-    const { data: profile } = await supabaseAdmin
+    // 4. Fetch user profile and credit balance
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("available_balance, withdrawable_balance")
       .eq("id", bet.user_id)
       .single();
 
-    if (profile) {
-      await supabaseAdmin
-        .from("profiles")
-        .update({ 
-          available_balance: Number(profile.available_balance) + cashOutValue,
-          withdrawable_balance: Number(profile.withdrawable_balance) + cashOutValue
-        })
-        .eq("id", bet.user_id);
-
-      // Log transaction
-      await supabaseAdmin.from("transactions").insert({
-        user_id: bet.user_id,
-        type: "win",
-        amount: cashOutValue,
-        status: "completed",
-        reference: `CASHOUT-${bet.booking_code}`,
-      });
+    if (profileError || !profile) {
+      console.error("Profile fetch error:", profileError);
+      throw new Error("Profile not found");
     }
 
+    const newAvailable = Number(profile.available_balance) + cashOutValue;
+    const newWithdrawable = Number(profile.withdrawable_balance) + cashOutValue;
+
+    const { error: balanceError } = await supabaseAdmin
+      .from("profiles")
+      .update({ 
+        available_balance: newAvailable,
+        withdrawable_balance: newWithdrawable
+      })
+      .eq("id", bet.user_id);
+
+    if (balanceError) {
+      console.error("Balance update error:", balanceError);
+      throw new Error("Failed to credit balance");
+    }
+
+    // 5. Log the transaction
+    await supabaseAdmin.from("transactions").insert({
+      user_id: bet.user_id,
+      type: "win", // Using 'win' so it shows as a green positive in history
+      amount: cashOutValue,
+      status: "completed",
+      reference: `CASHOUT-${bet.booking_code}`,
+    });
+
     return NextResponse.json({ success: true, cashOutValue });
+    
   } catch (err: any) {
-    console.error("Cashout error:", err);
+    console.error("Cashout API Error:", err);
     return NextResponse.json({ error: err.message || "Failed to cash out" }, { status: 500 });
   }
 }

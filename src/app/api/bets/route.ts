@@ -32,10 +32,20 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin.from("jackpots").update({ current_amount: Number(jackpot.current_amount) + (stake * 0.02) }).eq("name", "SportyMillions");
     }
 
+    // Generate Booking Code (7 letters) and Ticket ID (6 digits)
     const bookingCode = Array.from({ length: 7 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)]).join("");
+    const ticketId = Math.floor(100000 + Math.random() * 900000).toString();
 
     const { data: bet, error: betError } = await supabaseAdmin.from("bets").insert({
-      user_id: userId, stake, total_odds: totalOdds, potential_win: potentialWin, status: "pending", booking_code: bookingCode, selections,
+      user_id: userId, 
+      stake, 
+      total_odds: totalOdds, 
+      potential_win: potentialWin, 
+      status: "pending", 
+      booking_code: bookingCode, 
+      ticket_id: ticketId,
+      selections,
+      sport: "football" 
     }).select().single();
 
     if (betError) return NextResponse.json({ error: "Failed to place bet" }, { status: 500 });
@@ -54,10 +64,9 @@ export async function POST(req: NextRequest) {
     }
 
     await supabaseAdmin.from("profiles").update({ available_balance: newAvailable, bonus_balance: newBonus }).eq("id", userId);
-
     await supabaseAdmin.from("transactions").insert({ user_id: userId, type: "bet", amount: stake, status: "completed", reference: bookingCode });
 
-    return NextResponse.json({ success: true, betId: bet.id, bookingCode });
+    return NextResponse.json({ success: true, betId: bet.id, bookingCode, ticketId });
   } catch (err) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

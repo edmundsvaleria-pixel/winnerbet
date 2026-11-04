@@ -51,7 +51,7 @@ export default function SupportPage() {
         <div>
           <h2 className="text-lg font-bold text-white mb-4">Contact Us</h2>
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <a href="mailto:support@winnerbet.com" className="flex flex-col items-center justify-center rounded-xl border border-wb-border bg-wb-surface p-4 hover:border-wb-primary transition">
+            <a href="mailto:support@RiggedWin.com" className="flex flex-col items-center justify-center rounded-xl border border-wb-border bg-wb-surface p-4 hover:border-wb-primary transition">
               <Mail className="h-6 w-6 text-wb-primary mb-2" />
               <span className="text-xs font-bold text-white">Email Us</span>
             </a>

@@ -8,6 +8,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import BottomNav from "@/components/layout/BottomNav";
 import FloatingBetButton from "@/components/ui/FloatingBetButton";
 import BetSlip from "@/components/ui/BetSlip";
+import WinningTrophy from "@/components/ui/WinningTrophy"; // NEW IMPORT
 import { Loader2 } from "lucide-react";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -79,6 +80,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <BottomNav />
       <FloatingBetButton />
       <BetSlip />
+      
+      {/* GLOBAL WINNING TROPHY LISTENER */}
+      <WinningTrophy />
     </div>
   );
 }

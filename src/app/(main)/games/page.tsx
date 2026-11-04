@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Bomb, Circle, Dices, Disc, Flag, Goal, Hash, Rocket, Table, Target } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { useCasinoAccess } from "@/hooks/useCasinoAccess";
+import AccessDenied from "@/components/ui/AccessDenied";
 import JetX from "@/components/games/JetX";
 import Mines from "@/components/games/Mines";
 import Dice from "@/components/games/Dice";
@@ -19,33 +21,38 @@ type GameKey =
 type GameDef = {
   key: GameKey;
   name: string;
-  icon: React.ElementType;
+  emoji: string;
   desc: string;
-  color: string;
 };
 
 const games: GameDef[] = [
-  { key: "jetx", name: "JetX", icon: Rocket, desc: "Cash out before crash", color: "text-blue-400" },
-  { key: "mines", name: "Mines", icon: Bomb, desc: "5×5, 3 mines", color: "text-red-400" },
-  { key: "penalty", name: "Penalty", icon: Target, desc: "Beat the keeper", color: "text-green-400" },
-  { key: "dice", name: "Dice", icon: Dices, desc: "Roll over/under", color: "text-white" },
-  { key: "keno", name: "Keno", icon: Hash, desc: "Pick 10 numbers", color: "text-purple-400" },
-  { key: "plinko", name: "Plinko", icon: Circle, desc: "Drop the ball", color: "text-yellow-400" },
-  { key: "hotline", name: "Hotline", icon: Table, desc: "3-reel slot", color: "text-orange-400" },
-  { key: "spin", name: "Lucky Spin", icon: Disc, desc: "Spin the wheel", color: "text-pink-400" },
-  { key: "horseracing", name: "Horse Racing", icon: Flag, desc: "Pick the winner", color: "text-amber-600" },
-  { key: "virtualfootball", name: "Virtual Football", icon: Goal, desc: "30-sec match", color: "text-emerald-400" },
+  { key: "jetx", name: "JetX", emoji: "🚀", desc: "Cash out before crash" },
+  { key: "mines", name: "Mines", emoji: "💣", desc: "5×5, 3 mines" },
+  { key: "dice", name: "Dice", emoji: "🎲", desc: "Roll over/under" },
+  { key: "plinko", name: "Plinko", emoji: "🔴", desc: "Drop the ball" },
+  { key: "keno", name: "Keno", emoji: "🔢", desc: "Pick 10 numbers" },
+  { key: "penalty", name: "Penalty", emoji: "⚽", desc: "Beat the keeper" },
+  { key: "spin", name: "Lucky Spin", emoji: "🎡", desc: "Spin the wheel" },
+  { key: "hotline", name: "Hotline", emoji: "🎰", desc: "3-reel slot" },
+  { key: "horseracing", name: "Horse Racing", emoji: "🐎", desc: "Pick the winner" },
+  { key: "virtualfootball", name: "Virtual Football", emoji: "🏟️", desc: "30-sec match" },
 ];
 
-const CATEGORIES = [
-  { title: "Crash & Multiplier", keys: ["jetx", "mines", "penalty"] as GameKey[] },
-  { title: "Dice & Numbers", keys: ["dice", "keno", "plinko"] as GameKey[] },
-  { title: "Slots & Wheels", keys: ["hotline", "spin"] as GameKey[] },
-  { title: "Racing & Sports", keys: ["horseracing", "virtualfootball"] as GameKey[] },
+const CATEGORIES: { title: string; keys: GameKey[] }[] = [
+  { title: "Crash & Multiplier", keys: ["jetx", "mines", "penalty"] },
+  { title: "Dice & Numbers", keys: ["dice", "keno", "plinko"] },
+  { title: "Slots & Wheels", keys: ["hotline", "spin"] },
+  { title: "Racing & Sports", keys: ["horseracing", "virtualfootball"] },
 ];
 
 export default function GamesPage() {
   const [active, setActive] = useState<GameKey | null>(null);
+  const { hasAccess, loading, stats } = useCasinoAccess();
+
+  if (loading) return <div className="flex h-[60vh] items-center justify-center text-wb-muted">Checking access...</div>;
+  
+  // Show lock screen if requirements not met
+  if (!hasAccess) return <AccessDenied stats={stats} />;
 
   if (active) {
     const GameComponent = {
@@ -72,30 +79,27 @@ export default function GamesPage() {
     <div className="px-4 py-6 sm:px-6 lg:px-8">
       <h1 className="text-2xl font-bold text-white mb-6">Casino Games</h1>
       <div className="space-y-8">
-        {CATEGORIES.map((cat) => (
-          <div key={cat.title}>
-            <h2 className="text-sm font-bold text-wb-muted uppercase tracking-wider mb-3">{cat.title}</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {cat.keys.map((k) => {
-                const game = games.find((g) => g.key === k)!;
-                const Icon = game.icon;
-                return (
+        {CATEGORIES.map((cat) => {
+          const catGames = cat.keys.map((k) => games.find((g) => g.key === k)).filter(Boolean) as GameDef[];
+          return (
+            <div key={cat.title}>
+              <h2 className="text-sm font-bold text-wb-muted uppercase tracking-wider mb-3">{cat.title}</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {catGames.map((game) => (
                   <button
                     key={game.key}
                     onClick={() => setActive(game.key)}
-                    className="group flex flex-col items-start rounded-xl border border-wb-border bg-wb-surface p-4 text-left transition hover:border-wb-primary hover:bg-wb-sub"
+                    className="flex flex-col items-start rounded-xl border border-wb-border bg-wb-surface p-4 text-left transition hover:border-wb-primary"
                   >
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-wb-bg border border-wb-border-strong transition group-hover:scale-110">
-                      <Icon className={`h-6 w-6 ${game.color}`} />
-                    </div>
+                    <span className="text-3xl mb-2">{game.emoji}</span>
                     <span className="text-sm font-bold text-white">{game.name}</span>
                     <span className="text-xs text-wb-muted mt-0.5">{game.desc}</span>
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -9,69 +9,53 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: Request) {
   try {
-    const body = await req.text();
+    const body = await req.text(); // Must use raw text for signature
     const signature = req.headers.get("x-paystack-signature");
+    const secret = process.env.PAYSTACK_SECRET_KEY!;
 
-    const hash = crypto
-      .createHmac("sha512", process.env.PAYSTACK_SECRET_KEY!)
-      .update(body)
-      .digest("hex");
-
-    if (hash !== signature) return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    // 1. Verify HMAC SHA512 Signature
+    const hash = crypto.createHmac("sha512", secret).update(body).digest("hex");
+    
+    // Use timingSafeEqual to prevent timing attacks [citation:3]
+    const isValid = signature && crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature));
+    
+    if (!isValid) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
 
     const event = JSON.parse(body);
 
+    // 2. Handle Successful Charge
     if (event.event === "charge.success") {
       const { reference, amount, customer } = event.data;
-      const amountGHS = amount / 100;
+      const amountGHS = amount / 100; // Convert pesewas to GHS
 
+      // Find user by email (or reference if you store it)
       const { data: profile } = await supabaseAdmin
         .from("profiles")
-        .select("id, available_balance, bonus_balance, deposit_count")
+        .select("id, available_balance, deposit_count")
         .eq("email", customer.email)
         .single();
 
       if (profile) {
-        const isFirstDeposit = (profile.deposit_count || 0) === 0;
-        let bonusAmount = isFirstDeposit ? amountGHS * 0.5 : 0;
-
-        await supabaseAdmin.from("profiles").update({
-          available_balance: Number(profile.available_balance) + amountGHS,
-          bonus_balance: Number(profile.bonus_balance || 0) + bonusAmount,
-          deposit_count: (profile.deposit_count || 0) + 1,
-        }).eq("id", profile.id);
-
-        await supabaseAdmin.from("transactions").insert({
-          user_id: profile.id, type: "deposit", amount: amountGHS, status: "completed", reference,
-        });
-
-        if (bonusAmount > 0) {
-          await supabaseAdmin.from("transactions").insert({
-            user_id: profile.id, type: "bonus", amount: bonusAmount, status: "completed", reference: `BONUS-${reference}`,
-          });
-        }
-
-        // Handle Referral Commission
-        const { data: referral } = await supabaseAdmin
-          .from("referrals")
-          .select("id, referrer_id, commission_paid")
-          .eq("referred_id", profile.id)
-          .eq("commission_paid", false)
+        // Check if this reference was already processed (Idempotency)
+        const { data: existingTx } = await supabaseAdmin
+          .from("transactions")
+          .select("id")
+          .eq("reference", reference)
           .single();
 
-        if (referral && !referral.commission_paid) {
-          const { data: referrer } = await supabaseAdmin.from("profiles").select("available_balance").eq("id", referral.referrer_id).single();
-          if (referrer) {
-            await supabaseAdmin.from("profiles").update({
-              available_balance: Number(referrer.available_balance) + 20,
-            }).eq("id", referral.referrer_id);
+        if (!existingTx) {
+          // Credit Wallet
+          await supabaseAdmin.from("profiles").update({
+            available_balance: Number(profile.available_balance) + amountGHS,
+            deposit_count: (profile.deposit_count || 0) + 1,
+          }).eq("id", profile.id);
 
-            await supabaseAdmin.from("transactions").insert({
-              user_id: referral.referrer_id, type: "commission", amount: 20, status: "completed", reference: `REF-${referral.id}`,
-            });
-            
-            await supabaseAdmin.from("referrals").update({ commission_paid: true, status: "completed" }).eq("id", referral.id);
-          }
+          // Log Transaction
+          await supabaseAdmin.from("transactions").insert({
+            user_id: profile.id, type: "deposit", amount: amountGHS, status: "completed", reference,
+          });
         }
       }
     }

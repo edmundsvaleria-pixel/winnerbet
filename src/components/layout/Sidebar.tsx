@@ -2,18 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dices, Dumbbell, Goal, Home, Receipt, ShieldCheck, Volleyball, Wallet, LifeBuoy, History, Settings, Trophy, Users } from "lucide-react";
+import { 
+  Dices, Goal, Home, Receipt, ShieldCheck, Wallet, 
+  LifeBuoy, History, Settings, Trophy, Users, 
+  DollarSign, Gamepad2, Gift 
+} from "lucide-react";
 
-type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; };
 
 const sports: NavItem[] = [
   { href: "/sports/football", label: "Football", icon: Goal },
-  { href: "/sports/basketball", label: "Basketball", icon: Dumbbell },
-  { href: "/sports/tennis", label: "Tennis", icon: Volleyball },
+  { href: "/virtuals", label: "Virtual Sports", icon: Gamepad2 },
 ];
 
 const account: NavItem[] = [
   { href: "/jackpot", label: "Jackpot", icon: Trophy },
+  { href: "/cashout", label: "Cash Out", icon: DollarSign },
+  { href: "/promotions", label: "Promotions", icon: Gift },
   { href: "/my-bets", label: "My Bets", icon: Receipt },
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/wallet/history", label: "History", icon: History },
@@ -45,7 +50,7 @@ export default function Sidebar({ role }: { role: string }) {
         </div>
         <div>
           <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-wb-muted">Casino</p>
-          <div className="space-y-1"><Item item={{ href: "/games", label: "All Games", icon: Dices }} /></div>
+          <div className="space-y-1"><Item item={{ href: "/games", label: "Casino Games", icon: Dices }} /></div>
         </div>
         <div>
           <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-wb-muted">Account</p>
@@ -58,9 +63,7 @@ export default function Sidebar({ role }: { role: string }) {
           </div>
         )}
       </nav>
-      <Link href="/sports/football" className="mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-wb-muted transition hover:text-white">
-        <Home className="h-3.5 w-3.5" /> Home
-      </Link>
+      <Link href="/" className="mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-wb-muted transition hover:text-white"><Home className="h-3.5 w-3.5" /> Home</Link>
     </aside>
   );
 }

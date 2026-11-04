@@ -10,13 +10,15 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Winnerbet — Sports Betting & Casino",
-    template: "%s | Winnerbet",
+    default: "RiggedWin — Sports Betting & Casino",
+    template: "%s | RiggedWin",
   },
   description:
-    "Bet on live football and play instant casino games on Winnerbet. Fast deposits, instant payouts.",
-  applicationName: "Winnerbet",
-  icons: { icon: "/favicon.ico" },
+    "Bet on live football and play instant casino games on RiggedWin. Fast deposits, instant payouts.",
+  applicationName: "RiggedWin",
+  icons: {
+    icon: "/w.ico", // Points to public/w.ico
+  },
 };
 
 export const viewport: Viewport = {

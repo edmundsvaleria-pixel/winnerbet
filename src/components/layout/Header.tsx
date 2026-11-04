@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, LogOut, Plus, Receipt, Wallet, ShieldCheck, Settings, History, Users } from "lucide-react";
+import { ChevronDown, LogOut, Plus, Receipt, Wallet } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useUserStore } from "@/store/userStore";
 import { useBetSlipStore } from "@/store/betSlip";
@@ -12,7 +12,6 @@ export default function Header({ username, isGuest = false }: { username: string
   const router = useRouter();
   const balance = useUserStore((s) => s.balance);
   const symbol = useUserStore((s) => s.symbol);
-  const currency = useUserStore((s) => s.currency);
   const resetUser = useUserStore((s) => s.reset);
   const clearSlip = useBetSlipStore((s) => s.clearSlip);
 
@@ -49,29 +48,38 @@ export default function Header({ username, isGuest = false }: { username: string
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 h-16 border-b border-wb-border bg-wb-bg/95 backdrop-blur">
-      <div className="flex h-full items-center justify-between gap-3 px-3 sm:px-4 lg:px-6">
-        <Link href="/sports/football" className="flex items-center">
-          <span className="text-xl font-extrabold tracking-tight text-white">Winner<span className="text-wb-primary">bet</span></span>
+      <div className="flex h-full items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
+        
+        {/* LOGO */}
+        <Link href="/" className="flex items-center gap-2 shrink-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-wb-primary text-black font-black">
+            W
+          </div>
+          <span className="text-xl font-extrabold tracking-tight text-white hidden sm:block">
+            Rigged<span className="text-wb-primary">Win</span>
+          </span>
         </Link>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2">
           {isGuest ? (
             <>
-              <Link href="/login" className="rounded-full px-4 py-2 text-sm font-bold text-white hover:text-wb-primary">Log In</Link>
+              <Link href="/login" className="text-sm font-bold text-white hover:text-wb-primary px-2 py-2">Log In</Link>
               <Link href="/signup" className="rounded-full bg-wb-primary px-4 py-2 text-sm font-bold text-black hover:bg-wb-primary-hover">Sign Up</Link>
             </>
           ) : (
             <>
-              <span className="hidden rounded-full border border-wb-border-strong bg-wb-surface px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-wb-muted sm:inline-block">{currency}</span>
               <div className={`flex items-center gap-2 rounded-full border border-wb-border-strong bg-wb-surface px-3 py-1.5 transition ${pulse ? "border-wb-primary" : ""}`}>
                 <Wallet className="h-3.5 w-3.5 text-wb-primary" />
-                <span className={`text-sm font-bold tabular-nums ${pulse ? "text-wb-primary" : "text-white"}`}>{symbol} {formatted}</span>
+                <span className={`text-sm font-bold tabular-nums ${pulse ? "text-wb-primary" : "text-white"}`}>
+                  {symbol} {formatted}
+                </span>
               </div>
-              <Link href="/wallet" className="hidden items-center gap-1.5 rounded-full bg-wb-primary px-4 py-2 text-xs font-bold text-black hover:bg-wb-primary-hover sm:flex"><Plus className="h-3.5 w-3.5" /> Deposit</Link>
 
               <div className="relative" ref={menuRef}>
                 <button type="button" onClick={() => setMenuOpen((v) => !v)} className="flex items-center gap-1.5 rounded-full border border-wb-border-strong bg-wb-surface px-1.5 py-1.5 transition hover:border-wb-primary">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-wb-primary text-xs font-black text-black">{username?.[0]?.toUpperCase() ?? "U"}</span>
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-wb-primary text-xs font-black text-black">
+                    {username?.[0]?.toUpperCase() ?? "U"}
+                  </span>
                   <ChevronDown className="h-3.5 w-3.5 text-wb-muted" />
                 </button>
 
@@ -83,10 +91,6 @@ export default function Header({ username, isGuest = false }: { username: string
                     </div>
                     <Link href="/my-bets" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-white hover:bg-wb-sub"><Receipt className="h-4 w-4 text-wb-muted" /> My Bets</Link>
                     <Link href="/wallet" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-white hover:bg-wb-sub"><Wallet className="h-4 w-4 text-wb-muted" /> Wallet</Link>
-                    <Link href="/wallet/history" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-white hover:bg-wb-sub"><History className="h-4 w-4 text-wb-muted" /> History</Link>
-                    <Link href="/profile/referrals" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-white hover:bg-wb-sub"><Users className="h-4 w-4 text-wb-muted" /> Refer & Earn</Link>
-                    <Link href="/profile/kyc" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-white hover:bg-wb-sub"><ShieldCheck className="h-4 w-4 text-wb-muted" /> Verify Identity</Link>
-                    <Link href="/profile/settings" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-white hover:bg-wb-sub"><Settings className="h-4 w-4 text-wb-muted" /> Settings</Link>
                     <button type="button" onClick={handleLogout} className="flex w-full items-center gap-2 border-t border-wb-border px-4 py-2.5 text-left text-sm text-wb-danger hover:bg-wb-sub"><LogOut className="h-4 w-4" /> Log Out</button>
                   </div>
                 )}
