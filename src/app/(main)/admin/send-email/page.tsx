@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Loader2, Mail, Send, Users } from "lucide-react";
+import { Loader2, Mail, Send, Users, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminSendEmailPage() {
@@ -11,6 +11,7 @@ export default function AdminSendEmailPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
@@ -21,6 +22,35 @@ export default function AdminSendEmailPage() {
     loadUsers();
   }, []);
 
+  async function handleAIGenerate() {
+    if (!subject) {
+      alert("Please enter a subject first so the AI knows what to write about.");
+      return;
+    }
+    setAiLoading(true);
+    setStatus(null);
+    
+    try {
+      const res = await fetch("/api/admin/ai-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          prompt: `Write a professional and exciting promotional email for a sports betting platform called RiggedWin. The email is about: "${subject}". Keep it short, engaging, and do not use placeholders like [Name].` 
+        }),
+      });
+      const data = await res.json();
+      if (data.text) {
+        setMessage(data.text);
+      } else {
+        throw new Error(data.error || "Failed to generate");
+      }
+    } catch (err: any) {
+      setStatus({ type: "error", text: err.message });
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -28,14 +58,16 @@ export default function AdminSendEmailPage() {
 
     try {
       const res = await fetch("/api/admin/send-email", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetEmail, subject, message }),
       });
       const data = await res.json();
 
       if (res.ok) {
         setStatus({ type: "success", text: `Successfully sent to ${data.sent} user(s).` });
-        setSubject(""); setMessage("");
+        setSubject(""); 
+        setMessage("");
       } else {
         throw new Error(data.error);
       }
@@ -86,10 +118,21 @@ export default function AdminSendEmailPage() {
 
         {/* Message */}
         <div>
-          <label className="block text-xs font-semibold text-wb-muted uppercase mb-1.5">Message</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-semibold text-wb-muted uppercase">Message</label>
+            <button 
+              type="button" 
+              onClick={handleAIGenerate} 
+              disabled={aiLoading || !subject}
+              className="flex items-center gap-1.5 text-xs font-bold text-wb-primary hover:text-white transition disabled:opacity-50"
+            >
+              {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {aiLoading ? "Generating..." : "Auto-Generate with AI"}
+            </button>
+          </div>
           <textarea 
             value={message} onChange={(e) => setMessage(e.target.value)} 
-            placeholder="Type your message here..." required rows={6}
+            placeholder="Type your message here or use the AI generator..." required rows={8}
             className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-3 text-sm text-white focus:border-wb-primary focus:outline-none resize-none" 
           />
         </div>
