@@ -1,12 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    // This allows production builds to complete even if there are ESLint errors.
+    // This stops Vercel from failing the build due to unused variables or 'any' types
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // This also allows builds to complete if there are TypeScript errors.
+    // This stops Vercel from failing the build due to missing type definitions
     ignoreBuildErrors: true,
+  },
+  images: {
+    // Allows external images (like team logos) to load without config errors
+    unoptimized: true,
   },
 };
 
