@@ -7,6 +7,8 @@ import { useUserStore } from "@/store/userStore";
 import { supabase } from "@/lib/supabase/client";
 import { ArrowLeft, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 const MIN_WITHDRAWAL = 10000;
 const COMMISSION_RATE = 0.10; // 10%
 
@@ -60,7 +62,6 @@ export default function WithdrawPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Dynamically import Paystack only when needed (client-side)
     const PaystackPop = (await import("@paystack/inline-js")).default;
     const paystack = new PaystackPop();
     
@@ -69,7 +70,7 @@ export default function WithdrawPage() {
       email: user.email!,
       amount: Math.round(commission * 100), // Convert GHS to Pesewas
       currency: "GHS",
-      onSuccess: async (transaction: { reference: string }) => { // Typed properly instead of 'any'
+      onSuccess: async (transaction: { reference: string }) => {
         await supabase.from("transactions").insert({
           user_id: user.id, type: "commission", amount: commission, status: "completed", reference: transaction.reference,
         });
@@ -183,5 +184,3 @@ export default function WithdrawPage() {
     </div>
   );
 }
-export const dynamic = 'force-dynamic';
-

@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic"; // Renamed to fix the conflict
 import { useUserStore } from "@/store/userStore";
 import { Wallet, TrendingUp, Plus, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
-// Load DepositModal only on the client side to avoid SSR window errors
-const DepositModal = dynamic(() => import("@/components/wallet/DepositModal"), { 
+// Force this page to be dynamic to avoid build-time prerendering errors
+export const dynamic = 'force-dynamic';
+
+// Load DepositModal only on the client side
+const DepositModal = nextDynamic(() => import("@/components/wallet/DepositModal"), { 
   ssr: false 
 });
 
@@ -100,5 +103,3 @@ export default function WalletPage() {
     </div>
   );
 }
-export const dynamic = 'force-dynamic';
-
