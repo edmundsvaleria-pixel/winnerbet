@@ -12,11 +12,22 @@ export async function POST(req: Request) {
 
     const { 
       league, homeTeam, awayTeam, startTime, 
-      homeOdds, drawOdds, awayOdds, result 
+      homeOdds, drawOdds, awayOdds, result,
+      correctScore, htFt // New JSON fields
     } = await req.json();
 
     if (!league || !homeTeam || !awayTeam || !startTime) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Parse the JSON strings safely
+    let parsedCorrectScore = null;
+    let parsedHtFt = null;
+    try {
+      if (correctScore) parsedCorrectScore = JSON.parse(correctScore);
+      if (htFt) parsedHtFt = JSON.parse(htFt);
+    } catch (e) {
+      return NextResponse.json({ error: "Invalid JSON format for Correct Score or HT/FT" }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -31,6 +42,8 @@ export async function POST(req: Request) {
         draw_odds: Number(drawOdds) || 3.00,
         away_odds: Number(awayOdds) || 3.50,
         result: result || null,
+        correct_score_odds: parsedCorrectScore,
+        ht_ft_odds: parsedHtFt,
         status: "upcoming"
       })
       .select()
