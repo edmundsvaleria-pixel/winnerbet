@@ -3,12 +3,14 @@ import { fetchMatches, Match } from "@/lib/bsd";
 import { generateMarkets, fluctuateOdds, MarketOdds } from "@/lib/odds-engine";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseAdmin = createClient(
+
+
+export async function GET() {
+  const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET() {
   try {
     let allMatches: Match[] = [];
     const apiMatches = await fetchMatches();

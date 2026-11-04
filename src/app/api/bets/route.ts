@@ -2,12 +2,14 @@ import { NextResponse, NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/ratelimit";
 
-const supabaseAdmin = createClient(
+
+
+export async function POST(req: NextRequest) {
+  const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(req: NextRequest) {
   try {
     const ip = req.ip ?? "127.0.0.1";
     const limitResult = rateLimit(ip, 10, 60000);

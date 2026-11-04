@@ -3,10 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 // FIXED: Using the correct Supabase Service Role Key from .env.local
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+
 
 function randomHex(bytes = 16) {
   return crypto.randomBytes(bytes).toString('hex');
@@ -19,6 +16,11 @@ function hmac(serverSeed: string, clientSeed: string, nonce: number) {
 }
 
 export async function POST(req: Request) {
+  const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
   try {
     const { userId, game, stake, action, payload = {} } = await req.json();
     if (!userId || !game || !stake) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -157,3 +159,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
