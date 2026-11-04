@@ -1,25 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronLeft, Lock, CheckCircle2 } from "lucide-react";
+import { X, ChevronLeft, Lock } from "lucide-react";
 import { Match } from "@/lib/bsd";
 import { useBetSlipStore } from "@/store/betSlip";
-import VirtualPitch from "./VirtualPitch";
 
 export default function MatchDetailsModal({ 
   match, 
   onClose 
 }: { 
-  match: Match & { isLocked?: boolean, currentScore?: { home: number, away: number }, currentMinute?: number }; 
+  match: Match & { isLocked?: boolean, currentScore?: { home: number, away: number } }; 
   onClose: () => void; 
 }) {
   const [activeTab, setActiveTab] = useState<string>("All");
   const addSelection = useBetSlipStore((s) => s.addSelection);
   const isSelected = useBetSlipStore((s) => s.isSelected);
 
+  const isFinished = match.status === "finished";
+
   const handleOddClick = (marketName: string, pick: string, odd: number) => {
-    if (odd <= 0 || match.isLocked) return;
-    addSelection({ matchId: Number(match.id), matchLabel: `${match.homeTeam} vs ${match.awayTeam}`, league: match.league, market: marketName, pick, odd });
+    if (odd <= 0 || match.isLocked || isFinished) return;
+    addSelection({ 
+      matchId: Number(match.id), 
+      matchLabel: `${match.homeTeam} vs ${match.awayTeam}`, 
+      league: match.league, 
+      market: marketName, 
+      pick, 
+      odd 
+    });
   };
 
   const TABS = ["All", "Main", "Goals", "Half", "Bookings", "Corners", "Players", "Teams", "Minutes", "Match"];
@@ -31,10 +39,10 @@ export default function MatchDetailsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 sm:px-4 sm:py-6" onClick={onClose}>
       <div 
-        className="w-full h-full sm:h-auto sm:max-w-2xl flex flex-col bg-wb-bg sm:rounded-2xl border border-wb-border shadow-2xl overflow-hidden animate-slide-up sm:animate-fade-up sm:max-h-[90vh]" 
+        className="w-full h-full sm:h-auto sm:max-w-xl flex flex-col bg-wb-bg sm:rounded-2xl border border-wb-border shadow-2xl overflow-hidden animate-slide-up sm:animate-fade-up sm:max-h-[90vh]" 
         onClick={(e) => e.stopPropagation()}
       >
-        
+        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-wb-border bg-wb-surface shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={onClose} className="sm:hidden p-2 -ml-2 text-wb-muted hover:text-white">
@@ -50,24 +58,23 @@ export default function MatchDetailsModal({
           </button>
         </div>
 
-        {match.status === "finished" ? (
+        {/* Content States */}
+        {isFinished ? (
           <div className="flex flex-col items-center justify-center p-10 flex-1 bg-wb-bg text-center">
-             <CheckCircle2 className="h-12 w-12 text-wb-primary mb-4" />
-             <h3 className="text-lg font-bold text-white mb-2">Match Finished</h3>
-             
-             <div className="flex items-center gap-6 mt-6 bg-wb-surface px-8 py-4 rounded-2xl border border-wb-border-strong">
-                <div className="text-center">
-                  <p className="text-sm text-wb-muted mb-1">{match.homeTeam}</p>
-                  <p className="text-4xl font-black text-white">{match.currentScore?.home || 0}</p>
-                </div>
-                <div className="text-2xl text-wb-muted font-bold">-</div>
-                <div className="text-center">
-                  <p className="text-sm text-wb-muted mb-1">{match.awayTeam}</p>
-                  <p className="text-4xl font-black text-white">{match.currentScore?.away || 0}</p>
-                </div>
+             <div className="h-16 w-16 rounded-full bg-wb-surface flex items-center justify-center mb-4 border border-wb-border">
+               <Lock className="h-8 w-8 text-wb-muted" />
              </div>
-
-             <p className="text-sm text-wb-muted mt-6">This match is no longer available for betting.</p>
+             <h3 className="text-lg font-bold text-white mb-2">Match Finished</h3>
+             <p className="text-sm text-wb-muted mb-6">This match has ended and markets are closed.</p>
+             
+             {match.currentScore && (
+               <div className="bg-wb-surface border border-wb-border-strong rounded-xl px-8 py-4">
+                 <p className="text-xs text-wb-muted uppercase mb-2">Final Score</p>
+                 <p className="text-3xl font-black text-white">
+                   {match.currentScore.home} - {match.currentScore.away}
+                 </p>
+               </div>
+             )}
           </div>
         ) : match.isLocked ? (
           <div className="flex flex-col items-center justify-center p-10 flex-1 bg-wb-bg text-center">
@@ -79,10 +86,7 @@ export default function MatchDetailsModal({
           </div>
         ) : (
           <>
-            <div className="p-4 pb-0">
-              <VirtualPitch homeTeam={match.homeTeam} awayTeam={match.awayTeam} isLive={match.status === "live"} />
-            </div>
-
+            {/* Tabs */}
             <div className="flex overflow-x-auto border-b border-wb-border bg-wb-surface shrink-0 scrollbar-hide">
               {TABS.map((tab) => (
                 <button
@@ -99,7 +103,8 @@ export default function MatchDetailsModal({
               ))}
             </div>
 
-            <div className="p-5 overflow-y-auto flex-1 bg-wb-bg pb-safe space-y-6">
+            {/* Markets */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 bg-wb-bg pb-safe space-y-6">
               {displayedMarkets.length === 0 ? (
                 <p className="text-center text-wb-muted py-10">No markets available in this category.</p>
               ) : (

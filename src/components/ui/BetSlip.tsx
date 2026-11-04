@@ -27,9 +27,10 @@ export default function BetSlip() {
 
   const [stake, setStake] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
-  const [autoAccept, setAutoAccept] = useState(true); // NEW: Auto-Accept
-  const [isSimulated, setIsSimulated] = useState(false); // NEW: SIM mode
+  const [autoAccept, setAutoAccept] = useState(true);
+  const [isSimulated, setIsSimulated] = useState(false);
   
   const [receiptData, setReceiptData] = useState<{ bookingCode: string; stake: number; totalOdds: number; potentialWin: number; } | null>(null);
 
@@ -51,8 +52,7 @@ export default function BetSlip() {
 
     try {
       if (isSimulated) {
-        // SIMULATED BET: Just show receipt, don't touch DB
-        await new Promise(r => setTimeout(r, 800)); // Fake delay
+        await new Promise(r => setTimeout(r, 800));
         setReceiptData({ bookingCode: "SIM-" + Math.random().toString(36).substring(2, 6).toUpperCase(), stake: stakeNum, totalOdds, potentialWin });
         setLoading(false);
         return;
@@ -87,11 +87,29 @@ export default function BetSlip() {
     if (!isSimulated) router.push("/my-bets");
   }
 
-  // NEW: Copy Booking Code
-  function handleShareCode() {
-    const code = "BK-" + Math.random().toString(36).substring(2, 9).toUpperCase();
-    navigator.clipboard.writeText(code);
-    setToast({ msg: `Booking code ${code} copied!`, type: "success" });
+  async function handleShareCode() {
+    if (selections.length === 0) return;
+    setSharing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
+      const res = await fetch("/api/bets/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, selections }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      navigator.clipboard.writeText(data.bookingCode);
+      setToast({ msg: `Booking code ${data.bookingCode} copied!`, type: "success" });
+    } catch (err: any) {
+      setToast({ msg: err.message || "Failed to share", type: "error" });
+    } finally {
+      setSharing(false);
+    }
   }
 
   if (!isOpen && !receiptData) return null;
@@ -108,25 +126,24 @@ export default function BetSlip() {
       `}>
         <div className="flex justify-center py-2 lg:hidden" onClick={closeSlip}><div className="h-1.5 w-12 rounded-full bg-wb-border-strong" /></div>
 
-        {/* Header with SIM & Share */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-wb-border px-4">
           <div className="flex items-center gap-3">
             <h2 className="text-base font-bold text-white">Bet Slip</h2>
             <span className="rounded-full bg-wb-primary/15 px-2 py-0.5 text-xs font-bold text-wb-primary">{selections.length}</span>
             
-            {/* SIM Toggle */}
             <button onClick={() => setIsSimulated(!isSimulated)} className={`text-[10px] font-bold px-2 py-1 rounded border transition ${isSimulated ? "bg-yellow-500/20 border-yellow-500 text-yellow-500" : "bg-transparent border-wb-border text-wb-muted"}`}>
               {isSimulated ? "SIM ON" : "SIM OFF"}
             </button>
           </div>
           
           <div className="flex items-center gap-2">
-            <button onClick={handleShareCode} disabled={selections.length === 0} className="text-wb-muted hover:text-white disabled:opacity-30"><Share2 className="h-4 w-4" /></button>
+            <button onClick={handleShareCode} disabled={selections.length === 0 || sharing} className="text-wb-muted hover:text-white disabled:opacity-30">
+              {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+            </button>
             <button onClick={closeSlip} className="rounded-lg p-1.5 text-wb-muted hover:bg-wb-surface hover:text-white"><X className="h-5 w-5" /></button>
           </div>
         </div>
 
-        {/* Odds Auto-Accept Notice */}
         <div className="flex items-center justify-between bg-wb-surface px-4 py-2 border-b border-wb-border">
           <div className="flex items-center gap-2 text-[11px] text-wb-muted">
             <Settings className="h-3.5 w-3.5" /> Accept odds changes automatically?
