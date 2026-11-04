@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { LifeBuoy, Mail, MessageCircle, ChevronDown, CheckCircle2 } from "lucide-react";
+import { LifeBuoy, Mail, MessageCircle, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react";
 
 const FAQS = [
   { q: "How long do deposits take?", a: "Deposits via Mobile Money and Card are processed instantly." },
-  { q: "What is the minimum withdrawal amount?", a: "The minimum withdrawal is GH₵ 10,000. You must also have made at least 3 successful deposits." },
-  { q: "How do I load a bet using a booking code?", a: "Go to the 'My Bets' page, scroll to the 'Load Bet by Code' section, enter the 7-letter code." },
-  { q: "How does the Accumulator Bonus work?", a: "When you add more than 5 selections to your bet slip, we automatically apply a bonus up to 200%." },
+  { q: "What is the minimum withdrawal amount?", a: "The minimum withdrawal is GH₵ 10,000. You must have made at least 3 successful deposits and be KYC verified." },
+  { q: "How do I load a bet using a booking code?", a: "Go to the 'My Bets' page, enter the 7-letter code in the 'Load Booking Code' search bar." },
+  { q: "How does the Cash Out work?", a: "You can cash out a pending bet before the match ends. The value updates every 10 seconds based on the live odds." },
 ];
 
 export default function SupportPage() {
@@ -31,6 +31,7 @@ export default function SupportPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
+        {/* FAQs */}
         <div>
           <h2 className="text-lg font-bold text-white mb-4">Frequently Asked Questions</h2>
           <div className="space-y-2">
@@ -40,24 +41,25 @@ export default function SupportPage() {
                   <span className="text-sm font-semibold text-white">{faq.q}</span>
                   <ChevronDown className={`h-4 w-4 text-wb-muted transition-transform ${openFaq === index ? "rotate-180" : ""}`} />
                 </button>
-                {openFaq === index && (
-                  <div className="px-4 pb-4 text-sm text-wb-muted animate-fade-up">{faq.a}</div>
-                )}
+                {openFaq === index && <div className="px-4 pb-4 text-sm text-wb-muted animate-fade-up">{faq.a}</div>}
               </div>
             ))}
           </div>
         </div>
 
+        {/* Contact Form */}
         <div>
           <h2 className="text-lg font-bold text-white mb-4">Contact Us</h2>
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <a href="mailto:support@RiggedWin.com" className="flex flex-col items-center justify-center rounded-xl border border-wb-border bg-wb-surface p-4 hover:border-wb-primary transition">
+            <a href="mailto:support@riggedwin.site" className="flex flex-col items-center justify-center rounded-xl border border-wb-border bg-wb-surface p-4 hover:border-wb-primary transition">
               <Mail className="h-6 w-6 text-wb-primary mb-2" />
               <span className="text-xs font-bold text-white">Email Us</span>
+              <span className="text-[10px] text-wb-muted mt-1">support@riggedwin.site</span>
             </a>
             <a href="https://wa.me/233000000000" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center rounded-xl border border-wb-border bg-wb-surface p-4 hover:border-wb-primary transition">
               <MessageCircle className="h-6 w-6 text-wb-primary mb-2" />
               <span className="text-xs font-bold text-white">WhatsApp</span>
+              <span className="text-[10px] text-wb-muted mt-1">+233 00 000 0000</span>
             </a>
           </div>
 
@@ -76,6 +78,7 @@ export default function SupportPage() {
                     <option value="deposit">Deposit Issue</option>
                     <option value="withdrawal">Withdrawal Issue</option>
                     <option value="account">Account / Login</option>
+                    <option value="betting">Betting Question</option>
                   </select>
                 </div>
                 <div>
