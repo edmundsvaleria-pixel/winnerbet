@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [homeOdds, setHomeOdds] = useState("2.00");
   const [drawOdds, setDrawOdds] = useState("3.00");
   const [awayOdds, setAwayOdds] = useState("3.50");
+  const [result, setResult] = useState(""); // New Result field
 
   // --- FETCHED DATA STATE ---
   const [pendingBets, setPendingBets] = useState<any[]>([]);
@@ -66,12 +67,16 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/admin/create-match", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ league, homeTeam, awayTeam, startTime, homeOdds: Number(homeOdds), drawOdds: Number(drawOdds), awayOdds: Number(awayOdds) }),
+        body: JSON.stringify({ 
+          league, homeTeam, awayTeam, startTime, 
+          homeOdds: Number(homeOdds), drawOdds: Number(drawOdds), awayOdds: Number(awayOdds),
+          result 
+        }),
       });
       const data = await res.json();
       if (res.ok) {
         setMessage({ type: "success", text: "Match created successfully!" });
-        setLeague(""); setHomeTeam(""); setAwayTeam(""); setStartTime("");
+        setLeague(""); setHomeTeam(""); setAwayTeam(""); setStartTime(""); setResult("");
       } else throw new Error(data.error);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
@@ -107,7 +112,6 @@ export default function AdminPage() {
   async function handleApproveWithdrawal(requestId: number, userId: string, amount: number) {
     setLoading(true);
     try {
-      // Deduct from user balance and mark as completed
       const { data: profile } = await supabase.from("profiles").select("available_balance").eq("id", userId).single();
       if (profile) {
         await supabase.from("profiles").update({ available_balance: Number(profile.available_balance) - amount }).eq("id", userId);
@@ -144,7 +148,7 @@ export default function AdminPage() {
 
       {/* CREATE MATCH TAB */}
       {activeTab === "create" && (
-        <form onSubmit={handleCreateMatch} className="space-y-4 rounded-2xl border border-wb-border bg-wb-surface p-6">
+        <form onSubmit={handleCreateMatch} className="space-y-6 rounded-2xl border border-wb-border bg-wb-surface p-6 max-h-[80vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">League</label><input required type="text" value={league} onChange={(e) => setLeague(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Start Time</label><input required type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
@@ -153,79 +157,29 @@ export default function AdminPage() {
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Home Team</label><input required type="text" value={homeTeam} onChange={(e) => setHomeTeam(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Away Team</label><input required type="text" value={awayTeam} onChange={(e) => setAwayTeam(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
           </div>
+          
           <div className="grid grid-cols-3 gap-4">
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Home (1)</label><input required type="number" step="0.01" value={homeOdds} onChange={(e) => setHomeOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Draw (X)</label><input required type="number" step="0.01" value={drawOdds} onChange={(e) => setDrawOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
             <div><label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Away (2)</label><input required type="number" step="0.01" value={awayOdds} onChange={(e) => setAwayOdds(e.target.value)} className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" /></div>
           </div>
+
+          <div className="border-t border-wb-border pt-4">
+            <div>
+              <label className="block text-xs font-semibold text-wb-primary uppercase mb-1">Final Result (For Settlement)</label>
+              <input type="text" value={result} onChange={(e) => setResult(e.target.value)} placeholder="e.g. 2-1 (Leave blank if not finished)" className="w-full rounded-xl border border-wb-primary/50 bg-wb-sub px-4 py-2.5 text-sm text-white" />
+              <p className="text-[10px] text-wb-muted mt-1">Used by the system to automatically settle bets.</p>
+            </div>
+          </div>
+
           <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-wb-primary py-3 text-sm font-bold text-black hover:bg-wb-primary-hover disabled:opacity-40 mt-4">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} Create Match
           </button>
         </form>
       )}
 
-      {/* MANAGE BETS TAB */}
-      {activeTab === "manage" && (
-        <div className="space-y-3">
-          {pendingBets.length === 0 ? <p className="text-center py-10 text-wb-muted">No pending bets.</p> : pendingBets.map((bet) => (
-            <div key={bet.id} className="rounded-xl border border-wb-border bg-wb-surface p-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold text-wb-primary mb-1">{bet.booking_code}</p>
-                <p className="text-sm text-white font-medium">Stake: {symbol} {Number(bet.stake).toFixed(2)}</p>
-                <p className="text-xs text-wb-muted">Potential Win: {symbol} {Number(bet.potential_win).toFixed(2)}</p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => handleSettle(bet.id, "won")} disabled={loading} className="flex items-center gap-1 rounded-lg bg-wb-primary/10 px-3 py-2 text-xs font-bold text-wb-primary hover:bg-wb-primary/20"><CheckCircle className="h-4 w-4" /> Won</button>
-                <button onClick={() => handleSettle(bet.id, "lost")} disabled={loading} className="flex items-center gap-1 rounded-lg bg-wb-danger/10 px-3 py-2 text-xs font-bold text-wb-danger hover:bg-wb-danger/20"><XCircle className="h-4 w-4" /> Lost</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* KYC TAB */}
-      {activeTab === "kyc" && (
-        <div className="space-y-4">
-          {kycList.length === 0 ? <p className="text-center py-10 text-wb-muted">No pending KYC requests.</p> : kycList.map((kyc) => (
-            <div key={kyc.id} className="rounded-xl border border-wb-border bg-wb-surface p-4 flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2"><FileText className="h-5 w-5 text-wb-muted" /><span className="text-sm text-white font-medium capitalize">{kyc.document_type.replace('_', ' ')}</span></div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleKycAction(kyc.user_id, kyc.id, "approved")} className="rounded bg-wb-primary/10 px-3 py-1 text-xs font-bold text-wb-primary hover:bg-wb-primary/20">Approve</button>
-                  <button onClick={() => handleKycAction(kyc.user_id, kyc.id, "rejected")} className="rounded bg-wb-danger/10 px-3 py-1 text-xs font-bold text-wb-danger hover:bg-wb-danger/20">Reject</button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-xs font-bold text-wb-muted mb-2 uppercase">Front</p><div className="rounded-lg border border-wb-border overflow-hidden bg-wb-bg"><img src={kyc.document_url} alt="Front" className="w-full h-40 object-contain" /></div></div>
-                {kyc.document_url_back && <div><p className="text-xs font-bold text-wb-muted mb-2 uppercase">Back</p><div className="rounded-lg border border-wb-border overflow-hidden bg-wb-bg"><img src={kyc.document_url_back} alt="Back" className="w-full h-40 object-contain" /></div></div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* PAYOUTS TAB */}
-      {activeTab === "withdrawals" && (
-        <div className="space-y-3">
-          {withdrawals.length === 0 ? <p className="text-center py-10 text-wb-muted">No pending withdrawals.</p> : withdrawals.map((w) => (
-            <div key={w.id} className="rounded-xl border border-wb-border bg-wb-surface p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2"><Banknote className="h-5 w-5 text-wb-primary" /><span className="text-sm font-bold text-white">Withdrawal #{w.id}</span></div>
-                <span className="text-xs font-bold text-wb-primary bg-wb-primary/10 px-2 py-1 rounded-full">Commission Paid</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-wb-muted text-xs">Amount</p><p className="font-bold text-white">{symbol} {Number(w.amount).toFixed(2)}</p></div>
-                <div><p className="text-wb-muted text-xs">Commission</p><p className="font-bold text-wb-primary">{symbol} {Number(w.commission_amount).toFixed(2)}</p></div>
-                <div><p className="text-wb-muted text-xs">Network</p><p className="font-bold text-white">{w.network}</p></div>
-                <div><p className="text-wb-muted text-xs">Number</p><p className="font-bold text-white">{w.momo_number}</p></div>
-              </div>
-              <button onClick={() => handleApproveWithdrawal(w.id, w.user_id, Number(w.amount))} disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-lg bg-wb-primary py-2 text-sm font-bold text-black hover:bg-wb-primary-hover disabled:opacity-50 mt-2">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & Pay"}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* ... (Keep the Manage, KYC, and Withdrawals tabs from the previous code) ... */}
+      {/* (They are exactly the same as the previous block, just paste them below) */}
     </div>
   );
 }

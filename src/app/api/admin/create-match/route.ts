@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
-  const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.PAYSTACK_SECRET_KEY!
-);
-
   try {
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     const { 
       league, homeTeam, awayTeam, startTime, 
-      homeOdds, drawOdds, awayOdds 
+      homeOdds, drawOdds, awayOdds, result 
     } = await req.json();
 
-    if (!league || !homeTeam || !awayTeam || !startTime || !homeOdds || !drawOdds || !awayOdds) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+    if (!league || !homeTeam || !awayTeam || !startTime) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -27,9 +27,10 @@ export async function POST(req: Request) {
         home_team: homeTeam,
         away_team: awayTeam,
         start_time: new Date(startTime).toISOString(),
-        home_odds: Number(homeOdds),
-        draw_odds: Number(drawOdds),
-        away_odds: Number(awayOdds),
+        home_odds: Number(homeOdds) || 2.00,
+        draw_odds: Number(drawOdds) || 3.00,
+        away_odds: Number(awayOdds) || 3.50,
+        result: result || null,
         status: "upcoming"
       })
       .select()
@@ -43,4 +44,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err.message || "Failed to create match" }, { status: 500 });
   }
 }
-
