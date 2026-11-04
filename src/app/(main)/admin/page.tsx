@@ -4,13 +4,28 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useUserStore } from "@/store/userStore";
-import { Loader2, PlusCircle, CheckCircle, XCircle, FileText, Banknote, Trash2 } from "lucide-react";
+import { 
+  Loader2, PlusCircle, CheckCircle, XCircle, FileText, 
+  Banknote, BarChart3, TrendingUp, AlertTriangle, DollarSign, Trash2
+} from "lucide-react";
+
+const CS_OUTCOMES = [
+  "1-0", "2-0", "2-1", "3-0", "3-1", "3-2", "4-0", "4-1", "4-2", "5-0", "5-1",
+  "0-0", "1-1", "2-2", "3-3", 
+  "0-1", "0-2", "1-2", "0-3", "1-3", "2-3", "0-4", "1-4", "2-4", "0-5", "1-5"
+];
+
+const HTFT_OUTCOMES = [
+  "1/1", "1/X", "1/2",
+  "X/1", "X/X", "X/2",
+  "2/1", "2/X", "2/2"
+];
 
 export default function AdminPage() {
   const router = useRouter();
   const symbol = useUserStore((s) => s.symbol);
   
-  const [activeTab, setActiveTab] = useState<"create" | "manage" | "kyc" | "withdrawals">("create");
+  const [activeTab, setActiveTab] = useState<"create" | "manage" | "kyc" | "withdrawals" | "analytics">("create");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -30,18 +45,17 @@ export default function AdminPage() {
   const [under25, setUnder25] = useState("");
   const [over35, setOver35] = useState("");
   const [under35, setUnder35] = useState("");
-
-  // Custom Dynamic O/U Markets
+  
   const [customOU, setCustomOU] = useState<{ line: string; over: string; under: string }[]>([]);
-
-  const [correctScore, setCorrectScore] = useState("");
-  const [htFt, setHtFt] = useState("");
+  const [csOdds, setCsOdds] = useState<Record<string, string>>({});
+  const [htftOdds, setHtftOdds] = useState<Record<string, string>>({});
   const [result, setResult] = useState("");
 
   // --- FETCHED DATA STATE ---
   const [pendingBets, setPendingBets] = useState<any[]>([]);
   const [kycList, setKycList] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState({ totalStakes: 0, totalWins: 0, ggr: 0, pendingLiability: 0 });
 
   useEffect(() => {
     async function checkAdmin() {
@@ -68,25 +82,39 @@ export default function AdminPage() {
     if (data) setWithdrawals(data);
   };
 
+  const loadAnalytics = async () => {
+    const { data: allBets } = await supabase.from("bets").select("stake, potential_win, status");
+    if (allBets) {
+      let totalStakes = 0; let totalWins = 0; let pendingLiability = 0;
+      allBets.forEach(bet => {
+        if (bet.status === "pending") pendingLiability += Number(bet.potential_win);
+        else {
+          totalStakes += Number(bet.stake);
+          if (bet.status === "won") totalWins += Number(bet.potential_win);
+        }
+      });
+      setAnalytics({ totalStakes, totalWins, ggr: totalStakes - totalWins, pendingLiability });
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "manage") loadPendingBets();
     if (activeTab === "kyc") loadKycRequests();
     if (activeTab === "withdrawals") loadWithdrawals();
+    if (activeTab === "analytics") loadAnalytics();
   }, [activeTab]);
 
-  // --- CUSTOM O/U HANDLERS ---
-  function addCustomOU() {
-    setCustomOU([...customOU, { line: "", over: "", under: "" }]);
-  }
-
+  function addCustomOU() { setCustomOU([...customOU, { line: "", over: "", under: "" }]); }
   function updateCustomOU(index: number, field: "line" | "over" | "under", value: string) {
-    const updated = [...customOU];
-    updated[index][field] = value;
-    setCustomOU(updated);
+    const updated = [...customOU]; updated[index][field] = value; setCustomOU(updated);
   }
+  function removeCustomOU(index: number) { setCustomOU(customOU.filter((_, i) => i !== index)); }
 
-  function removeCustomOU(index: number) {
-    setCustomOU(customOU.filter((_, i) => i !== index));
+  function updateCsOdds(outcome: string, value: string) {
+    setCsOdds(prev => ({ ...prev, [outcome]: value }));
+  }
+  function updateHtftOdds(outcome: string, value: string) {
+    setHtftOdds(prev => ({ ...prev, [outcome]: value }));
   }
 
   async function handleCreateMatch(e: React.FormEvent) {
@@ -94,14 +122,12 @@ export default function AdminPage() {
     setLoading(true);
     setMessage(null);
     try {
-      // Format custom OU markets
+      const finalCsOdds = Object.fromEntries(Object.entries(csOdds).filter(([_, v]) => v !== ""));
+      const finalHtftOdds = Object.fromEntries(Object.entries(htftOdds).filter(([_, v]) => v !== ""));
+
       const formattedCustomOU = customOU
         .filter(item => item.line && item.over && item.under)
-        .map(item => ({
-          line: item.line,
-          over: Number(item.over),
-          under: Number(item.under)
-        }));
+        .map(item => ({ line: item.line, over: Number(item.over), under: Number(item.under) }));
 
       const res = await fetch("/api/admin/create-match", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -109,19 +135,19 @@ export default function AdminPage() {
           league, homeTeam, awayTeam, startTime, 
           homeOdds, drawOdds, awayOdds,
           over15, under15, over25, under25, over35, under35,
-          customOU: formattedCustomOU, // Pass the array
-          correctScore, htFt, result 
+          customOU: formattedCustomOU,
+          correctScore: finalCsOdds, 
+          htFt: finalHtftOdds,
+          result 
         }),
       });
       const data = await res.json();
       if (res.ok) {
         setMessage({ type: "success", text: "Match created successfully!" });
-        // Reset form
         setLeague(""); setHomeTeam(""); setAwayTeam(""); setStartTime(""); 
         setHomeOdds("2.00"); setDrawOdds("3.00"); setAwayOdds("3.50");
         setOver15(""); setUnder15(""); setOver25(""); setUnder25(""); setOver35(""); setUnder35("");
-        setCustomOU([]); // Reset custom markets
-        setCorrectScore(""); setHtFt(""); setResult("");
+        setCustomOU([]); setCsOdds({}); setHtftOdds({}); setResult("");
       } else throw new Error(data.error);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
@@ -131,18 +157,13 @@ export default function AdminPage() {
   }
 
   async function handleSettle(betId: number, outcome: "won" | "lost") {
-    setLoading(true);
-    setMessage(null);
+    setLoading(true); setMessage(null);
     try {
       const res = await fetch("/api/admin/settle-bet", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ betId, outcome }),
       });
       if (res.ok) { setMessage({ type: "success", text: `Bet marked as ${outcome}.` }); loadPendingBets(); }
-    } catch (err: any) {
-      setMessage({ type: "error", text: err.message });
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setMessage({ type: "error", text: err.message }); } finally { setLoading(false); }
   }
 
   async function handleKycAction(userId: string, submissionId: number, action: "approved" | "rejected") {
@@ -158,19 +179,12 @@ export default function AdminPage() {
     setLoading(true);
     try {
       const { data: profile } = await supabase.from("profiles").select("available_balance").eq("id", userId).single();
-      if (profile) {
-        await supabase.from("profiles").update({ available_balance: Number(profile.available_balance) - amount }).eq("id", userId);
-      }
+      if (profile) await supabase.from("profiles").update({ available_balance: Number(profile.available_balance) - amount }).eq("id", userId);
       await supabase.from("withdrawal_requests").update({ status: "completed" }).eq("id", requestId);
       await supabase.from("transactions").insert({ user_id: userId, type: "withdrawal", amount: amount, status: "completed", reference: `WTH-${requestId}` });
-
       setMessage({ type: "success", text: "Withdrawal approved and paid." });
       loadWithdrawals();
-    } catch (err: any) {
-      setMessage({ type: "error", text: err.message });
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setMessage({ type: "error", text: err.message }); } finally { setLoading(false); }
   }
 
   return (
@@ -178,9 +192,9 @@ export default function AdminPage() {
       <h1 className="text-2xl font-bold text-white mb-6">Admin Dashboard</h1>
 
       <div className="flex gap-2 mb-6 bg-wb-surface p-1 rounded-xl border border-wb-border overflow-x-auto">
-        {(["create", "manage", "kyc", "withdrawals"] as const).map((tab) => (
+        {(["create", "manage", "kyc", "withdrawals", "analytics"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition capitalize ${activeTab === tab ? "bg-wb-primary text-black" : "text-wb-muted hover:text-white"}`}>
-            {tab === "kyc" ? "KYC" : tab === "withdrawals" ? "Payouts" : tab}
+            {tab === "kyc" ? "KYC" : tab === "withdrawals" ? "Payouts" : tab === "analytics" ? "Analytics" : tab}
           </button>
         ))}
       </div>
@@ -191,6 +205,7 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* CREATE MATCH TAB */}
       {activeTab === "create" && (
         <form onSubmit={handleCreateMatch} className="relative space-y-6 rounded-2xl border border-wb-border bg-wb-surface p-6">
           
@@ -212,7 +227,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* OVER/UNDER ODDS */}
           <div className="border-t border-wb-border pt-4">
             <h3 className="text-sm font-bold text-white mb-3">Standard Over/Under</h3>
             <div className="grid grid-cols-2 gap-4 mb-3">
@@ -229,7 +243,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* DYNAMIC OVER/UNDER */}
           <div className="border-t border-wb-border pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-white">Custom Over/Under</h3>
@@ -237,45 +250,44 @@ export default function AdminPage() {
                 <PlusCircle className="h-3.5 w-3.5" /> Add Custom Market
               </button>
             </div>
-            
             {customOU.map((market, index) => (
               <div key={index} className="grid grid-cols-4 gap-2 mb-2 items-end">
-                <div>
-                  <label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Line</label>
-                  <input type="number" step="0.25" placeholder="e.g. 4.5" value={market.line} onChange={(e) => updateCustomOU(index, "line", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Over Odds</label>
-                  <input type="number" step="0.01" placeholder="1.80" value={market.over} onChange={(e) => updateCustomOU(index, "over", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Under Odds</label>
-                  <input type="number" step="0.01" placeholder="2.00" value={market.under} onChange={(e) => updateCustomOU(index, "under", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" />
-                </div>
-                <button type="button" onClick={() => removeCustomOU(index)} className="rounded-lg bg-wb-danger/10 p-2 text-wb-danger hover:bg-wb-danger/20 transition mb-0.5">
-                  <Trash2 className="h-5 w-5" />
-                </button>
+                <div><label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Line</label><input type="number" step="0.25" placeholder="e.g. 4.5" value={market.line} onChange={(e) => updateCustomOU(index, "line", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" /></div>
+                <div><label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Over</label><input type="number" step="0.01" placeholder="1.80" value={market.over} onChange={(e) => updateCustomOU(index, "over", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" /></div>
+                <div><label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">Under</label><input type="number" step="0.01" placeholder="2.00" value={market.under} onChange={(e) => updateCustomOU(index, "under", e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white" /></div>
+                <button type="button" onClick={() => removeCustomOU(index)} className="rounded-lg bg-wb-danger/10 p-2 text-wb-danger hover:bg-wb-danger/20 transition mb-0.5"><Trash2 className="h-5 w-5" /></button>
               </div>
             ))}
           </div>
 
-          {/* TEXT MARKETS */}
-          <div className="border-t border-wb-border pt-4 space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">Correct Score Odds</label>
-              <input type="text" value={correctScore} onChange={(e) => setCorrectScore(e.target.value)} placeholder="e.g. 2.50" className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">HT/FT Odds</label>
-              <input type="text" value={htFt} onChange={(e) => setHtFt(e.target.value)} placeholder="e.g. 4.80" className="w-full rounded-xl border border-wb-border-strong bg-wb-sub px-4 py-2.5 text-sm text-white" />
+          <div className="border-t border-wb-border pt-4">
+            <h3 className="text-sm font-bold text-white mb-3">Correct Score Odds</h3>
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              {CS_OUTCOMES.map((outcome) => (
+                <div key={outcome} className="flex flex-col">
+                  <label className="block text-[10px] font-semibold text-wb-muted uppercase mb-1">{outcome}</label>
+                  <input type="number" step="0.01" placeholder="-" value={csOdds[outcome] || ""} onChange={(e) => updateCsOdds(outcome, e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-2 py-2 text-sm text-white text-center" />
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* STICKY FOOTER */}
+          <div className="border-t border-wb-border pt-4">
+            <h3 className="text-sm font-bold text-white mb-3">HT/FT Odds</h3>
+            <div className="grid grid-cols-3 sm:grid-cols-3 gap-4">
+              {HTFT_OUTCOMES.map((outcome) => (
+                <div key={outcome} className="flex flex-col">
+                  <label className="block text-xs font-semibold text-wb-muted uppercase mb-1">{outcome}</label>
+                  <input type="number" step="0.01" placeholder="-" value={htftOdds[outcome] || ""} onChange={(e) => updateHtftOdds(outcome, e.target.value)} className="w-full rounded-lg border border-wb-border-strong bg-wb-sub px-3 py-2 text-sm text-white text-center" />
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="sticky bottom-0 -mx-6 -mb-6 bg-wb-surface p-6 border-t border-wb-border-strong shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
             <div className="mb-4">
               <label className="block text-xs font-bold text-wb-primary uppercase mb-1">Final Result (For Settlement)</label>
-              <input type="text" value={result} onChange={(e) => setResult(e.target.value)} placeholder="e.g. 2-1 (Leave blank if not finished)" className="w-full rounded-xl border border-wb-primary/50 bg-wb-sub px-4 py-3 text-sm text-white font-bold" />
+              <input type="text" value={result} onChange={(e) => setResult(e.target.value)} placeholder="e.g. 2-1" className="w-full rounded-xl border border-wb-primary/50 bg-wb-sub px-4 py-3 text-sm text-white font-bold" />
             </div>
             <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-wb-primary py-4 text-sm font-bold text-black hover:bg-wb-primary-hover disabled:opacity-40">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} Create Match
@@ -344,6 +356,35 @@ export default function AdminPage() {
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ANALYTICS TAB */}
+      {activeTab === "analytics" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-wb-border bg-wb-surface p-5">
+              <div className="flex items-center gap-2 text-wb-muted mb-2"><BarChart3 className="h-4 w-4" /> <span className="text-xs font-bold uppercase">Total Stakes</span></div>
+              <p className="text-2xl font-bold text-white">{symbol} {analytics.totalStakes.toFixed(2)}</p>
+            </div>
+            <div className="rounded-xl border border-wb-border bg-wb-surface p-5">
+              <div className="flex items-center gap-2 text-wb-danger mb-2"><TrendingUp className="h-4 w-4" /> <span className="text-xs font-bold uppercase">Total Winnings Paid</span></div>
+              <p className="text-2xl font-bold text-white">{symbol} {analytics.totalWins.toFixed(2)}</p>
+            </div>
+            <div className="rounded-xl border border-wb-primary/30 bg-wb-primary/5 p-5">
+              <div className="flex items-center gap-2 text-wb-primary mb-2"><DollarSign className="h-4 w-4" /> <span className="text-xs font-bold uppercase">Gross Gaming Revenue</span></div>
+              <p className="text-2xl font-bold text-wb-primary">{symbol} {analytics.ggr.toFixed(2)}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-5 flex items-start gap-4">
+            <AlertTriangle className="h-6 w-6 text-yellow-500 shrink-0" />
+            <div>
+              <h3 className="text-sm font-bold text-yellow-500">Pending Liability</h3>
+              <p className="text-xs text-wb-muted mt-1">If all currently pending bets win, you will pay out:</p>
+              <p className="text-xl font-bold text-white mt-2">{symbol} {analytics.pendingLiability.toFixed(2)}</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -4,36 +4,20 @@ import { useState } from "react";
 import { X, ChevronLeft, Lock } from "lucide-react";
 import { Match } from "@/lib/bsd";
 import { useBetSlipStore } from "@/store/betSlip";
+import VirtualPitch from "./VirtualPitch";
 
-export default function MatchDetailsModal({ 
-  match, 
-  onClose 
-}: { 
-  match: Match & { isLocked?: boolean }; 
-  onClose: () => void; 
-}) {
-  // Default to "All" tab so the user sees everything immediately
+export default function MatchDetailsModal({ match, onClose }: { match: Match & { isLocked?: boolean }; onClose: () => void; }) {
   const [activeTab, setActiveTab] = useState<string>("All");
-  
   const addSelection = useBetSlipStore((s) => s.addSelection);
   const isSelected = useBetSlipStore((s) => s.isSelected);
 
   const handleOddClick = (marketName: string, pick: string, odd: number) => {
     if (odd <= 0 || match.isLocked) return;
-    addSelection({ 
-      matchId: Number(match.id), 
-      matchLabel: `${match.homeTeam} vs ${match.awayTeam}`, 
-      league: match.league, 
-      market: marketName, 
-      pick, 
-      odd 
-    });
+    addSelection({ matchId: Number(match.id), matchLabel: `${match.homeTeam} vs ${match.awayTeam}`, league: match.league, market: marketName, pick, odd });
   };
 
-  // Define the SportyBet tab order
   const TABS = ["All", "Main", "Goals", "Half", "Bookings", "Corners", "Players", "Teams", "Minutes", "Match"];
 
-  // Filter markets based on the active tab
   const displayedMarkets = (match.markets || []).filter((m) => 
     activeTab === "All" ? true : m.group === activeTab
   );
@@ -41,11 +25,10 @@ export default function MatchDetailsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 sm:px-4 sm:py-6" onClick={onClose}>
       <div 
-        className="w-full h-full sm:h-auto sm:max-w-xl flex flex-col bg-wb-bg sm:rounded-2xl border border-wb-border shadow-2xl overflow-hidden animate-slide-up sm:animate-fade-up sm:max-h-[90vh]" 
+        className="w-full h-full sm:h-auto sm:max-w-2xl flex flex-col bg-wb-bg sm:rounded-2xl border border-wb-border shadow-2xl overflow-hidden animate-slide-up sm:animate-fade-up sm:max-h-[90vh]" 
         onClick={(e) => e.stopPropagation()}
       >
         
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-wb-border bg-wb-surface shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={onClose} className="sm:hidden p-2 -ml-2 text-wb-muted hover:text-white">
@@ -61,7 +44,6 @@ export default function MatchDetailsModal({
           </button>
         </div>
 
-        {/* Halftime Lock */}
         {match.isLocked ? (
           <div className="flex flex-col items-center justify-center p-10 flex-1 bg-wb-bg text-center">
              <div className="h-16 w-16 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
@@ -72,7 +54,10 @@ export default function MatchDetailsModal({
           </div>
         ) : (
           <>
-            {/* SportyBet Tab Bar (Horizontal Scroll) */}
+            <div className="p-4 pb-0">
+              <VirtualPitch homeTeam={match.homeTeam} awayTeam={match.awayTeam} isLive={match.status === "live"} />
+            </div>
+
             <div className="flex overflow-x-auto border-b border-wb-border bg-wb-surface shrink-0 scrollbar-hide">
               {TABS.map((tab) => (
                 <button
@@ -89,7 +74,6 @@ export default function MatchDetailsModal({
               ))}
             </div>
 
-            {/* Markets List */}
             <div className="p-5 overflow-y-auto flex-1 bg-wb-bg pb-safe space-y-6">
               {displayedMarkets.length === 0 ? (
                 <p className="text-center text-wb-muted py-10">No markets available in this category.</p>

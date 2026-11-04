@@ -16,6 +16,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Format Correct Score into a simple string: "1-0:7.50, 2-0:9.00"
+    const csString = data.correctScore && Object.keys(data.correctScore).length > 0 
+      ? Object.entries(data.correctScore).map(([k, v]) => `${k}:${v}`).join(', ')
+      : null;
+
+    // Format HT/FT into a simple string: "1/1:2.80, X/1:4.80"
+    const htftString = data.htFt && Object.keys(data.htFt).length > 0
+      ? Object.entries(data.htFt).map(([k, v]) => `${k}:${v}`).join(', ')
+      : null;
+
     const { error } = await supabaseAdmin
       .from("matches")
       .insert({
@@ -28,7 +38,6 @@ export async function POST(req: Request) {
         draw_odds: Number(data.drawOdds) || 3.00,
         away_odds: Number(data.awayOdds) || 3.50,
         
-        // Standard Markets
         over_1_5: Number(data.over15) || null,
         under_1_5: Number(data.under15) || null,
         over_2_5: Number(data.over25) || null,
@@ -36,12 +45,10 @@ export async function POST(req: Request) {
         over_3_5: Number(data.over35) || null,
         under_3_5: Number(data.under35) || null,
 
-        // Custom Dynamic Markets (JSON)
         custom_ou_markets: data.customOU || [],
 
-        // Text Fields
-        correct_score: data.correctScore || null,
-        ht_ft: data.htFt || null,
+        correct_score: csString,
+        ht_ft: htftString,
         
         result: data.result || null,
         status: "upcoming"
