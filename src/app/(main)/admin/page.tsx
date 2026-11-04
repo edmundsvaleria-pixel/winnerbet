@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useUserStore } from "@/store/userStore";
 import { 
   Loader2, PlusCircle, CheckCircle, XCircle, FileText, 
-  Banknote, BarChart3, TrendingUp, AlertTriangle, DollarSign, Trash2
+  Banknote, BarChart3, TrendingUp, AlertTriangle, DollarSign, Trash2, RotateCcw
 } from "lucide-react";
 
 const CS_OUTCOMES = [
@@ -109,6 +109,10 @@ export default function AdminPage() {
     const updated = [...customOU]; updated[index][field] = value; setCustomOU(updated);
   }
   function removeCustomOU(index: number) { setCustomOU(customOU.filter((_, i) => i !== index)); }
+  
+  // New clear buttons
+  function clearCorrectScore() { setCsOdds({}); }
+  function clearHtFt() { setHtftOdds({}); }
 
   function updateCsOdds(outcome: string, value: string) {
     setCsOdds(prev => ({ ...prev, [outcome]: value }));
@@ -205,7 +209,6 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* CREATE MATCH TAB */}
       {activeTab === "create" && (
         <form onSubmit={handleCreateMatch} className="relative space-y-6 rounded-2xl border border-wb-border bg-wb-surface p-6">
           
@@ -261,7 +264,12 @@ export default function AdminPage() {
           </div>
 
           <div className="border-t border-wb-border pt-4">
-            <h3 className="text-sm font-bold text-white mb-3">Correct Score Odds</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-white">Correct Score Odds</h3>
+              <button type="button" onClick={clearCorrectScore} className="flex items-center gap-1 rounded-lg bg-wb-surface border border-wb-border-strong px-3 py-1.5 text-xs font-bold text-wb-muted hover:text-white transition">
+                <RotateCcw className="h-3.5 w-3.5" /> Clear All
+              </button>
+            </div>
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
               {CS_OUTCOMES.map((outcome) => (
                 <div key={outcome} className="flex flex-col">
@@ -273,7 +281,12 @@ export default function AdminPage() {
           </div>
 
           <div className="border-t border-wb-border pt-4">
-            <h3 className="text-sm font-bold text-white mb-3">HT/FT Odds</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-white">HT/FT Odds</h3>
+              <button type="button" onClick={clearHtFt} className="flex items-center gap-1 rounded-lg bg-wb-surface border border-wb-border-strong px-3 py-1.5 text-xs font-bold text-wb-muted hover:text-white transition">
+                <RotateCcw className="h-3.5 w-3.5" /> Clear All
+              </button>
+            </div>
             <div className="grid grid-cols-3 sm:grid-cols-3 gap-4">
               {HTFT_OUTCOMES.map((outcome) => (
                 <div key={outcome} className="flex flex-col">
