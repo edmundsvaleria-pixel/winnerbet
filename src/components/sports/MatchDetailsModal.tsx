@@ -1,12 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronLeft, Lock } from "lucide-react";
+import { X, ChevronLeft, Lock, CheckCircle2 } from "lucide-react";
 import { Match } from "@/lib/bsd";
 import { useBetSlipStore } from "@/store/betSlip";
 import VirtualPitch from "./VirtualPitch";
 
-export default function MatchDetailsModal({ match, onClose }: { match: Match & { isLocked?: boolean }; onClose: () => void; }) {
+export default function MatchDetailsModal({ 
+  match, 
+  onClose 
+}: { 
+  match: Match & { isLocked?: boolean, currentScore?: { home: number, away: number }, currentMinute?: number }; 
+  onClose: () => void; 
+}) {
   const [activeTab, setActiveTab] = useState<string>("All");
   const addSelection = useBetSlipStore((s) => s.addSelection);
   const isSelected = useBetSlipStore((s) => s.isSelected);
@@ -44,7 +50,26 @@ export default function MatchDetailsModal({ match, onClose }: { match: Match & {
           </button>
         </div>
 
-        {match.isLocked ? (
+        {match.status === "finished" ? (
+          <div className="flex flex-col items-center justify-center p-10 flex-1 bg-wb-bg text-center">
+             <CheckCircle2 className="h-12 w-12 text-wb-primary mb-4" />
+             <h3 className="text-lg font-bold text-white mb-2">Match Finished</h3>
+             
+             <div className="flex items-center gap-6 mt-6 bg-wb-surface px-8 py-4 rounded-2xl border border-wb-border-strong">
+                <div className="text-center">
+                  <p className="text-sm text-wb-muted mb-1">{match.homeTeam}</p>
+                  <p className="text-4xl font-black text-white">{match.currentScore?.home || 0}</p>
+                </div>
+                <div className="text-2xl text-wb-muted font-bold">-</div>
+                <div className="text-center">
+                  <p className="text-sm text-wb-muted mb-1">{match.awayTeam}</p>
+                  <p className="text-4xl font-black text-white">{match.currentScore?.away || 0}</p>
+                </div>
+             </div>
+
+             <p className="text-sm text-wb-muted mt-6">This match is no longer available for betting.</p>
+          </div>
+        ) : match.isLocked ? (
           <div className="flex flex-col items-center justify-center p-10 flex-1 bg-wb-bg text-center">
              <div className="h-16 w-16 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
                <Lock className="h-8 w-8 text-yellow-500" />
