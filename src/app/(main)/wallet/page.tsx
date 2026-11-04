@@ -100,3 +100,5 @@ export default function WalletPage() {
     </div>
   );
 }
+export const dynamic = 'force-dynamic';
+

@@ -183,3 +183,5 @@ export default function WithdrawPage() {
     </div>
   );
 }
+export const dynamic = 'force-dynamic';
+
